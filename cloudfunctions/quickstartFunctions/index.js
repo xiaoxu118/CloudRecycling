@@ -137,6 +137,44 @@ const insertRecord = async (event) => {
   }
 };
 
+// ============ 云回收业务 ============
+
+// 示例品类数据（来自数据字典，平台可后续在控制台增删改）
+const SAMPLE_CATEGORIES = [
+  { name: "纸箱/废纸", unit: "kg", priceRef: "0.8元/kg", icon: "", sortOrder: 1, enabled: true },
+  { name: "塑料瓶/塑料", unit: "kg", priceRef: "0.5元/kg", icon: "", sortOrder: 2, enabled: true },
+  { name: "易拉罐/金属", unit: "kg", priceRef: "2.0元/kg", icon: "", sortOrder: 3, enabled: true },
+  { name: "旧衣物", unit: "kg", priceRef: "0.2元/kg", icon: "", sortOrder: 4, enabled: true },
+  { name: "旧家电", unit: "件", priceRef: "面议", icon: "", sortOrder: 5, enabled: true },
+];
+
+// 初始化数据库：创建 categories/addresses/orders 集合，写入示例品类
+// 仅开发期手动调用一次；可重复调用（集合已存在会被 catch，品类非空时跳过写入）
+const initRecycleDB = async () => {
+  // 1. 创建三个集合，已存在则忽略异常
+  for (const name of ["categories", "addresses", "orders"]) {
+    try {
+      await db.createCollection(name);
+    } catch (e) {
+      // 集合已存在会抛错，属正常情况，忽略
+    }
+  }
+
+  // 2. 仅当 categories 为空时写入示例品类，避免重复调用产生重复数据
+  try {
+    const { total } = await db.collection("categories").count();
+    if (total === 0) {
+      for (const cat of SAMPLE_CATEGORIES) {
+        await db.collection("categories").add({ data: cat });
+      }
+    }
+  } catch (e) {
+    return { success: false, errMsg: "DB_ERROR" };
+  }
+
+  return { success: true };
+};
+
 // 删除数据
 const deleteRecord = async (event) => {
   try {
@@ -181,5 +219,8 @@ exports.main = async (event, context) => {
       return await insertRecord(event);
     case "deleteRecord":
       return await deleteRecord(event);
+    // ===== 云回收业务 =====
+    case "initRecycleDB":
+      return await initRecycleDB();
   }
 };
