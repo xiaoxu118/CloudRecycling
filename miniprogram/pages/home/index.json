@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "cloudTipModal": "../../components/cloudTipModal/index"
+  },
+  "navigationBarTitleText": "云回收"
+}

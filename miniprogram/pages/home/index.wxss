@@ -1,0 +1,99 @@
+/* 首页 */
+.home {
+  min-height: 100vh;
+  background: #f6f6f6;
+  padding-bottom: 40rpx;
+}
+
+/* banner */
+.banner {
+  background: linear-gradient(135deg, #07c160, #10ad7a);
+  padding: 60rpx 40rpx 80rpx;
+  color: #fff;
+}
+.banner-title {
+  font-size: 48rpx;
+  font-weight: bold;
+}
+.banner-sub {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  opacity: 0.9;
+}
+
+/* 两个主入口 */
+.entry-row {
+  display: flex;
+  padding: 0 24rpx;
+  margin-top: -40rpx;
+  gap: 24rpx;
+}
+.entry-card {
+  flex: 1;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 36rpx 24rpx;
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+.entry-icon {
+  font-size: 56rpx;
+}
+.entry-name {
+  margin-top: 16rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+.entry-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* 我的订单快捷入口 */
+.quick-order {
+  margin: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 30rpx;
+  color: #333;
+}
+.quick-arrow {
+  color: #ccc;
+  font-size: 36rpx;
+}
+
+/* 品类区 */
+.section-title {
+  padding: 8rpx 32rpx;
+  font-size: 28rpx;
+  color: #666;
+}
+.cat-list {
+  margin: 0 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+.cat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.cat-item:last-child {
+  border-bottom: none;
+}
+.cat-name {
+  font-size: 30rpx;
+  color: #333;
+}
+.cat-price {
+  font-size: 26rpx;
+  color: #07c160;
+}

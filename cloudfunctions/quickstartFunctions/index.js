@@ -138,42 +138,10 @@ const insertRecord = async (event) => {
 };
 
 // ============ 云回收业务 ============
-
-// 示例品类数据（来自数据字典，平台可后续在控制台增删改）
-const SAMPLE_CATEGORIES = [
-  { name: "纸箱/废纸", unit: "kg", priceRef: "0.8元/kg", icon: "", sortOrder: 1, enabled: true },
-  { name: "塑料瓶/塑料", unit: "kg", priceRef: "0.5元/kg", icon: "", sortOrder: 2, enabled: true },
-  { name: "易拉罐/金属", unit: "kg", priceRef: "2.0元/kg", icon: "", sortOrder: 3, enabled: true },
-  { name: "旧衣物", unit: "kg", priceRef: "0.2元/kg", icon: "", sortOrder: 4, enabled: true },
-  { name: "旧家电", unit: "件", priceRef: "面议", icon: "", sortOrder: 5, enabled: true },
-];
-
-// 初始化数据库：创建 categories/addresses/orders 集合，写入示例品类
-// 仅开发期手动调用一次；可重复调用（集合已存在会被 catch，品类非空时跳过写入）
-const initRecycleDB = async () => {
-  // 1. 创建三个集合，已存在则忽略异常
-  for (const name of ["categories", "addresses", "orders"]) {
-    try {
-      await db.createCollection(name);
-    } catch (e) {
-      // 集合已存在会抛错，属正常情况，忽略
-    }
-  }
-
-  // 2. 仅当 categories 为空时写入示例品类，避免重复调用产生重复数据
-  try {
-    const { total } = await db.collection("categories").count();
-    if (total === 0) {
-      for (const cat of SAMPLE_CATEGORIES) {
-        await db.collection("categories").add({ data: cat });
-      }
-    }
-  } catch (e) {
-    return { success: false, errMsg: "DB_ERROR" };
-  }
-
-  return { success: true };
-};
+// 业务逻辑拆分到 recycle/ 子模块，按需 require
+const recycleCategories = require("./recycle/categories");
+const recycleAddress = require("./recycle/address");
+const recycleOrders = require("./recycle/orders");
 
 // 删除数据
 const deleteRecord = async (event) => {
@@ -204,6 +172,8 @@ const deleteRecord = async (event) => {
 // const genMpQrcode = require('./genMpQrcode/index');
 // 云函数入口函数
 exports.main = async (event, context) => {
+  // 当前调用用户的 openid，用于"我的数据"接口的归属隔离
+  const { OPENID } = cloud.getWXContext();
   switch (event.type) {
     case "getOpenId":
       return await getOpenId();
@@ -220,7 +190,28 @@ exports.main = async (event, context) => {
     case "deleteRecord":
       return await deleteRecord(event);
     // ===== 云回收业务 =====
+    // 系统 / 品类
     case "initRecycleDB":
-      return await initRecycleDB();
+      return await recycleCategories.initRecycleDB();
+    case "listCategories":
+      return await recycleCategories.listCategories();
+    // 地址
+    case "getAddressList":
+      return await recycleAddress.getAddressList(event, OPENID);
+    case "saveAddress":
+      return await recycleAddress.saveAddress(event, OPENID);
+    case "deleteAddress":
+      return await recycleAddress.deleteAddress(event, OPENID);
+    // 订单
+    case "createOrder":
+      return await recycleOrders.createOrder(event, OPENID);
+    case "getOrderList":
+      return await recycleOrders.getOrderList(event, OPENID);
+    case "getOrderDetail":
+      return await recycleOrders.getOrderDetail(event, OPENID);
+    case "cancelOrder":
+      return await recycleOrders.cancelOrder(event, OPENID);
+    case "getTempFileURL":
+      return await recycleOrders.getTempFileURL(event);
   }
 };

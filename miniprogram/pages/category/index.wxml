@@ -1,0 +1,32 @@
+<!--品类列表-->
+<view class="category">
+  <!-- 加载中 -->
+  <view class="state-tip" wx:if="{{loading}}">加载中...</view>
+
+  <!-- 空态 -->
+  <view class="state-tip" wx:elif="{{!categories.length}}">暂无可回收品类</view>
+
+  <!-- 品类卡片列表 -->
+  <view class="cat-list" wx:else>
+    <view
+      class="cat-card {{item.selected ? 'selected' : ''}}"
+      wx:for="{{categories}}"
+      wx:key="_id"
+      data-index="{{index}}"
+      bind:tap="toggleSelect"
+    >
+      <view class="cat-icon">♻️</view>
+      <view class="cat-info">
+        <view class="cat-name">{{item.name}}</view>
+        <view class="cat-price">{{item.priceRef}} · 按{{item.unit}}计</view>
+      </view>
+      <view class="cat-check">{{item.selected ? '✓' : ''}}</view>
+    </view>
+  </view>
+
+  <!-- 底部下一步 -->
+  <view class="footer" wx:if="{{categories.length}}">
+    <view class="footer-tip">已选 {{selectedCount}} 类</view>
+    <button class="next-btn" bind:tap="goNext">下一步</button>
+  </view>
+</view>

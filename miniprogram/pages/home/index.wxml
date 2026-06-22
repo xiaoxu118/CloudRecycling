@@ -1,0 +1,39 @@
+<!--首页-->
+<view class="home">
+  <!-- 顶部 banner -->
+  <view class="banner">
+    <view class="banner-title">让回收更简单</view>
+    <view class="banner-sub">上门回收 · 环保到家</view>
+  </view>
+
+  <!-- 两个主入口 -->
+  <view class="entry-row">
+    <view class="entry-card entry-primary" bind:tap="goCategory">
+      <view class="entry-icon">♻️</view>
+      <view class="entry-name">按品类预约</view>
+      <view class="entry-desc">已知回收物，直接下单</view>
+    </view>
+    <view class="entry-card entry-photo" bind:tap="goPhoto">
+      <view class="entry-icon">📷</view>
+      <view class="entry-name">拍照提交</view>
+      <view class="entry-desc">不确定？拍照让平台判断</view>
+    </view>
+  </view>
+
+  <!-- 我的订单快捷入口 -->
+  <view class="quick-order" bind:tap="goOrderList">
+    <text>我的订单</text>
+    <text class="quick-arrow">›</text>
+  </view>
+
+  <!-- 热门品类（可选展示） -->
+  <view class="section-title" wx:if="{{categories.length}}">可回收品类</view>
+  <view class="cat-list" wx:if="{{categories.length}}">
+    <view class="cat-item" wx:for="{{categories}}" wx:key="_id" bind:tap="goCategory">
+      <view class="cat-name">{{item.name}}</view>
+      <view class="cat-price">{{item.priceRef}}</view>
+    </view>
+  </view>
+</view>
+
+<cloudTipModal showTipProps="{{showTip}}" title="{{tipTitle}}" content="{{tipContent}}" bind:close="onCloseTip" />
