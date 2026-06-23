@@ -2,6 +2,11 @@
 <view class="home">
   <!-- 顶部 banner -->
   <view class="banner">
+    <!-- 当前定位（左上角） -->
+    <view class="location" bind:tap="onTapLocation">
+      <text class="location-icon">📍</text>
+      <text class="location-text">{{locationText}}</text>
+    </view>
     <view class="banner-title">让回收更简单</view>
     <view class="banner-sub">上门回收 · 环保到家</view>
   </view>

@@ -1,6 +1,7 @@
 // 地址编辑（新增/修改）
 const { callCloud } = require("../../utils/cloud");
 const { checkLogin } = require("../../utils/auth");
+const { reverseGeocode } = require("../../utils/map");
 
 Page({
   data: {
@@ -48,6 +49,39 @@ Page({
   onRegionChange(e) {
     const arr = e.detail.value;
     this.setData({ regionArray: arr, region: arr.join(" ") });
+  },
+
+  // 地图选点：wx.chooseLocation 选地址 → 逆地理编码拆出省市区回填
+  onChooseLocation() {
+    wx.chooseLocation({
+      success: async (loc) => {
+        // loc.name 兴趣点名、loc.address 详细地址、loc.latitude/longitude 经纬度
+        // 优先把选中点的名称/详细地址填进「详细地址」
+        const detail = loc.name || loc.address || "";
+        this.setData({ detail });
+
+        // 逆地理编码拿省市区填进 region（chooseLocation 不直接返回行政区划）
+        try {
+          const r = await reverseGeocode(loc.latitude, loc.longitude);
+          const region = [r.province, r.city, r.district].filter(Boolean).join(" ");
+          if (region) {
+            this.setData({ region, regionArray: [r.province, r.city, r.district] });
+          }
+        } catch (err) {
+          console.warn("reverseGeocode failed:", err);
+          if (err && err.message === "MAP_KEY_NOT_SET") {
+            wx.showToast({ title: "未配置地图Key，请手选省市区", icon: "none" });
+          }
+          // 逆地理失败不阻塞：用户仍可手动选省市区
+        }
+      },
+      fail: (err) => {
+        // 用户取消不提示；其它失败给提示
+        if (err && err.errMsg && err.errMsg.indexOf("cancel") === -1) {
+          wx.showToast({ title: "地图选点失败", icon: "none" });
+        }
+      },
+    });
   },
 
   onDefaultChange(e) {

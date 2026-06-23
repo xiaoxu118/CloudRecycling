@@ -56,8 +56,13 @@ const fetchOpenid = async () => {
 };
 
 const checkLogin = (options = {}) => {
+  // ⚠️ 暂时关闭登录鉴权：开发阶段所有页面直接放行。
+  // 恢复鉴权时删除下面这行 return true，启用其下原始逻辑即可。
+  return true;
+
+  /* eslint-disable no-unreachable */
   const { redirect = true, showToast = true } = options;
-  
+
   if (!loginStatus.loggedIn) {
     if (showToast) {
       wx.showToast({ title: "请先登录", icon: "none" });

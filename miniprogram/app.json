@@ -45,6 +45,15 @@
     ]
   },
   "sitemapLocation": "sitemap.json",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于获取当前位置以显示所在地区并便于填写回收地址"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
   "style": "v2",
   "lazyCodeLoading": "requiredComponents"
 }
