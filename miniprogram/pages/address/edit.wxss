@@ -1,0 +1,44 @@
+/* 地址编辑 */
+.addr-edit {
+  min-height: 100vh;
+  background: #f6f6f6;
+  padding: 24rpx;
+}
+.form-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 0 32rpx;
+}
+.form-row {
+  display: flex;
+  align-items: center;
+  min-height: 100rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.form-row:last-child {
+  border-bottom: none;
+}
+.label {
+  width: 160rpx;
+  font-size: 30rpx;
+  color: #333;
+}
+.input {
+  flex: 1;
+  font-size: 30rpx;
+  color: #333;
+}
+.input.placeholder {
+  color: #999;
+}
+.arrow {
+  color: #ccc;
+  font-size: 36rpx;
+}
+.save-btn {
+  margin-top: 48rpx;
+  background: #07c160;
+  color: #fff;
+  font-size: 32rpx;
+  border-radius: 44rpx;
+}

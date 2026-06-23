@@ -1,14 +1,16 @@
 // 品类列表（支持多选）
 const { callCloud } = require("../../utils/cloud");
+const { checkLogin } = require("../../utils/auth");
 
 Page({
   data: {
-    categories: [], // 每项加 selected 字段
+    categories: [],
     loading: true,
     selectedCount: 0,
   },
 
   onLoad() {
+    if (!checkLogin()) return;
     this.loadCategories();
   },
 
@@ -23,7 +25,6 @@ Page({
     }
   },
 
-  // 切换选中
   toggleSelect(e) {
     const idx = e.currentTarget.dataset.index;
     const key = `categories[${idx}].selected`;
@@ -33,14 +34,12 @@ Page({
     this.setData({ selectedCount });
   },
 
-  // 下一步：把所选品类暂存到全局，跳下单页
   goNext() {
     const selected = this.data.categories.filter((c) => c.selected);
     if (selected.length === 0) {
       wx.showToast({ title: "请至少选择一个品类", icon: "none" });
       return;
     }
-    // 用全局暂存所选品类，避免 URL 过长
     getApp().globalData = getApp().globalData || {};
     getApp().globalData.selectedCategories = selected.map((c) => ({
       categoryId: c._id,

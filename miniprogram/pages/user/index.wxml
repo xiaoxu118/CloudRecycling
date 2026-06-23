@@ -1,1 +1,61 @@
-<view class="placeholder">我的（开发中）</view>
+<!--个人中心-->
+<view class="user">
+  <!-- 已登录：展示资料 -->
+  <view class="profile">
+    <view wx:if="{{loggedIn}}" class="profile-info">
+      <image class="avatar" src="{{avatarUrl || '/images/icons/avatar.png'}}" />
+      <view class="profile-text">
+        <view class="nickname">{{nickName || "微信用户"}}</view>
+        <view class="logout-btn" bind:tap="onLogout">退出登录</view>
+      </view>
+    </view>
+
+    <!-- 未登录：一键登录（头像 + 昵称） -->
+    <view wx:else class="login-area">
+      <view class="login-form">
+        <!-- 头像选择 -->
+        <button class="avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+          <image class="avatar" src="{{draftAvatar || '/images/icons/avatar.png'}}" />
+          <text class="avatar-tip">点击选择头像</text>
+        </button>
+
+        <!-- 昵称填写 -->
+        <view class="nickname-row">
+          <text class="nickname-label">昵称</text>
+          <input
+            class="nickname-input"
+            type="nickname"
+            placeholder="点击填写昵称"
+            value="{{draftNick}}"
+            bind:blur="onNickInput"
+            bind:input="onNickInput"
+          />
+        </view>
+
+        <button class="login-btn" loading="{{loading}}" bind:tap="onLogin">
+          微信一键登录
+        </button>
+        <view class="login-desc">登录后可使用全部功能</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 功能入口 -->
+  <view class="menu">
+    <view class="menu-item" bind:tap="goOrders">
+      <text class="menu-icon">📋</text>
+      <text class="menu-label">我的订单</text>
+      <text class="arrow">›</text>
+    </view>
+    <view class="menu-item" bind:tap="goAddress">
+      <text class="menu-icon">📍</text>
+      <text class="menu-label">我的地址</text>
+      <text class="arrow">›</text>
+    </view>
+    <view class="menu-item" bind:tap="onAbout">
+      <text class="menu-icon">ℹ️</text>
+      <text class="menu-label">关于 / 客服</text>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,88 @@
+/* 我的地址 */
+.addr-list {
+  min-height: 100vh;
+  background: #f6f6f6;
+  padding-bottom: 140rpx;
+}
+.state-tip {
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+  padding-top: 200rpx;
+}
+.empty {
+  padding-top: 200rpx;
+  text-align: center;
+}
+.empty-text {
+  color: #999;
+  font-size: 28rpx;
+}
+
+.cards {
+  padding: 24rpx;
+}
+.addr-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  margin-bottom: 20rpx;
+}
+.addr-line {
+  display: flex;
+  align-items: center;
+}
+.name {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333;
+  margin-right: 20rpx;
+}
+.phone {
+  font-size: 28rpx;
+  color: #666;
+}
+.default-tag {
+  margin-left: 16rpx;
+  font-size: 22rpx;
+  color: #07c160;
+  border: 1rpx solid #07c160;
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+}
+.addr-detail {
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  color: #666;
+}
+.addr-ops {
+  margin-top: 20rpx;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1rpx solid #f0f0f0;
+  padding-top: 20rpx;
+}
+.op {
+  font-size: 28rpx;
+  color: #07c160;
+  margin-left: 40rpx;
+}
+.op.del {
+  color: #e64340;
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 32rpx;
+  background: #fff;
+  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+.add-btn {
+  background: #07c160;
+  color: #fff;
+  font-size: 32rpx;
+  border-radius: 44rpx;
+}

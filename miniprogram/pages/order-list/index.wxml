@@ -1,1 +1,59 @@
-<view class="placeholder">我的订单（开发中）</view>
+<!--订单列表-->
+<view class="order-list">
+  <!-- 顶部 tabs -->
+  <view class="tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="key"
+      class="tab-item {{activeTab === key ? 'active' : ''}}"
+      data-key="{{key}}"
+      bind:tap="onTabChange"
+    >
+      {{item.label}}
+    </view>
+  </view>
+
+  <!-- 订单列表 -->
+  <view class="list">
+    <view wx:if="{{loading && !list.length}}" class="loading">加载中...</view>
+    
+    <view wx:elif="{{!list.length && !loading}}" class="empty">
+      <text class="empty-icon">📦</text>
+      <text class="empty-text">暂无订单</text>
+    </view>
+
+    <view
+      wx:for="{{list}}"
+      wx:key="_id"
+      class="order-card"
+      data-id="{{item._id}}"
+      bind:tap="goDetail"
+    >
+      <view class="order-header">
+        <view class="order-no">订单号：{{item.orderNo}}</view>
+        <view class="order-status" style="color: {{item.statusColor}}">
+          {{item.statusText}}
+        </view>
+      </view>
+      
+      <view class="order-body">
+        <view class="order-summary">{{item.summary}}</view>
+        <view class="order-time">
+          {{item.appointDate}} {{item.appointSlot}}
+        </view>
+      </view>
+
+      <view class="order-footer">
+        <text class="order-time-label">下单时间：{{item.timeText}}</text>
+        <text class="arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view wx:if="{{loading || hasMore}}" class="load-more">
+    <text wx:if="{{loading}}">加载中...</text>
+    <text wx:elif="{{hasMore}}" class="load-text" bind:tap="loadList">点击加载更多</text>
+    <text wx:else>没有更多了</text>
+  </view>
+</view>

@@ -1,1 +1,111 @@
-<view class="placeholder">提交订单（开发中）</view>
+<!--创建订单-->
+<view class="order-create">
+  <!-- 按品类预约 -->
+  <view wx:if="{{source === 'category'}}" class="section">
+    <view class="section-title">回收物品</view>
+    <view class="item-list">
+      <view wx:for="{{items}}" wx:key="categoryId" class="item-row">
+        <view class="item-info">
+          <view class="item-name">{{item.categoryName}}</view>
+          <view class="item-price">{{item.priceRef}}</view>
+        </view>
+        <view class="item-input">
+          <input
+            wx:if="{{item.unit === 'kg'}}"
+            type="digit"
+            placeholder="预估重量(kg)"
+            value="{{item.estWeight}}"
+            data-idx="{{index}}"
+            data-field="estWeight"
+            bind:input="onQuantityInput"
+          />
+          <input
+            wx:else
+            type="number"
+            placeholder="预估件数"
+            value="{{item.estCount}}"
+            data-idx="{{index}}"
+            data-field="estCount"
+            bind:input="onQuantityInput"
+          />
+        </view>
+      </view>
+    </view>
+    <view class="min-tip">最低起收量：{{minWeight}}kg</view>
+  </view>
+
+  <!-- 拍照提交 -->
+  <view wx:if="{{source === 'photo'}}" class="section">
+    <view class="section-title">物品照片</view>
+    <view class="photo-grid">
+      <view
+        wx:for="{{photoUrls}}"
+        wx:key="index"
+        class="photo-item"
+        data-idx="{{index}}"
+        bind:tap="onPhotoPreview"
+      >
+        <image src="{{item}}" mode="aspectFill" />
+        <view class="photo-delete" catch:tap="onPhotoRemove" data-idx="{{index}}">×</view>
+      </view>
+      <view wx:if="{{photos.length < 9}}" class="photo-add" bind:tap="onPhotoUpload">
+        <text class="add-icon">+</text>
+        <text class="add-text">添加照片</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 回收地址 -->
+  <view class="section">
+    <view class="section-title">回收地址</view>
+    <view class="address-card" bind:tap="goAddress">
+      <view wx:if="{{pickedAddress}}" class="address-info">
+        <view class="address-contact">{{pickedAddress.contactName}} {{pickedAddress.phone}}</view>
+        <view class="address-detail">{{pickedAddress.region}} {{pickedAddress.detail}}</view>
+      </view>
+      <view wx:else class="address-empty">
+        <text>请选择回收地址</text>
+        <text class="arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 预约时间 -->
+  <view class="section">
+    <view class="section-title">预约时间</view>
+    <view class="form-item">
+      <text class="label">日期</text>
+      <picker mode="date" value="{{appointDate}}" start="{{today}}" bind:change="onDateChange">
+        <view class="picker-value">
+          {{appointDate || '请选择日期'}}
+          <text class="arrow">›</text>
+        </view>
+      </picker>
+    </view>
+    <view class="form-item">
+      <text class="label">时间段</text>
+      <picker mode="selector" range="{{['09:00-12:00', '12:00-18:00', '18:00-21:00']}}" bind:change="onSlotChange">
+        <view class="picker-value">
+          {{appointSlot || '请选择时间段'}}
+          <text class="arrow">›</text>
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 备注 -->
+  <view class="section">
+    <view class="section-title">备注（选填）</view>
+    <textarea
+      class="remark-input"
+      placeholder="如有特殊要求，请备注说明"
+      value="{{remark}}"
+      bind:input="onRemarkInput"
+    />
+  </view>
+
+  <!-- 底部提交 -->
+  <view class="footer">
+    <button class="submit-btn" loading="{{submitting}}" bind:tap="onSubmit">提交订单</button>
+  </view>
+</view>

@@ -8,11 +8,40 @@ const db = cloud.database();
 const getOpenId = async () => {
   // 获取基础信息
   const wxContext = cloud.getWXContext();
+  // 统一返回契约：{ success, data }，与前端 callCloud 保持一致
   return {
-    openid: wxContext.OPENID,
-    appid: wxContext.APPID,
-    unionid: wxContext.UNIONID,
+    success: true,
+    data: {
+      openid: wxContext.OPENID,
+      appid: wxContext.APPID,
+      unionid: wxContext.UNIONID,
+    },
   };
+};
+
+// 解密用户手机号：前端 <button open-type="getPhoneNumber"> 拿到 code，
+// 云函数用 cloud.openapi.phonenumber.getPhoneNumber 换取明文手机号。
+// 注意：需小程序为「非个人主体」，且 config.json 登记 phonenumber.getPhoneNumber 权限。
+const getPhoneNumber = async (event) => {
+  const { code } = event;
+  if (!code) {
+    return { success: false, errMsg: "PARAM_INVALID" };
+  }
+  try {
+    const res = await cloud.openapi.phonenumber.getPhoneNumber({ code });
+    const info = res.phoneInfo || {};
+    return {
+      success: true,
+      data: {
+        phoneNumber: info.phoneNumber,
+        purePhoneNumber: info.purePhoneNumber,
+        countryCode: info.countryCode,
+      },
+    };
+  } catch (e) {
+    console.error("getPhoneNumber failed:", e);
+    return { success: false, errMsg: "PHONE_DECRYPT_FAILED" };
+  }
 };
 
 // 获取小程序二维码
@@ -177,6 +206,8 @@ exports.main = async (event, context) => {
   switch (event.type) {
     case "getOpenId":
       return await getOpenId();
+    case "getPhoneNumber":
+      return await getPhoneNumber(event);
     case "getMiniProgramCode":
       return await getMiniProgramCode();
     case "createCollection":

@@ -1,1 +1,30 @@
-<view class="placeholder">编辑地址（开发中）</view>
+<!--地址编辑-->
+<view class="addr-edit">
+  <view class="form-card">
+    <view class="form-row">
+      <text class="label">联系人</text>
+      <input class="input" data-field="contactName" value="{{contactName}}" bind:input="onInput" placeholder="收货联系人" />
+    </view>
+    <view class="form-row">
+      <text class="label">手机号</text>
+      <input class="input" type="number" maxlength="11" data-field="phone" value="{{phone}}" bind:input="onInput" placeholder="11 位手机号" />
+    </view>
+    <picker mode="region" value="{{regionArray}}" bind:change="onRegionChange">
+      <view class="form-row">
+        <text class="label">省市区</text>
+        <view class="input {{region ? '' : 'placeholder'}}">{{region || '请选择省市区'}}</view>
+        <text class="arrow">›</text>
+      </view>
+    </picker>
+    <view class="form-row">
+      <text class="label">详细地址</text>
+      <input class="input" data-field="detail" value="{{detail}}" bind:input="onInput" placeholder="街道、门牌号等" />
+    </view>
+    <view class="form-row">
+      <text class="label">设为默认</text>
+      <switch checked="{{isDefault}}" color="#07c160" bind:change="onDefaultChange" />
+    </view>
+  </view>
+
+  <button class="save-btn" loading="{{saving}}" bind:tap="onSave">保存</button>
+</view>

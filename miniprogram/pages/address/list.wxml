@@ -1,1 +1,31 @@
-<view class="placeholder">我的地址（开发中）</view>
+<!--我的地址-->
+<view class="addr-list">
+  <view class="state-tip" wx:if="{{loading}}">加载中...</view>
+
+  <!-- 空态 -->
+  <view class="empty" wx:elif="{{!list.length}}">
+    <view class="empty-text">还没有地址，去新增</view>
+  </view>
+
+  <!-- 地址卡片 -->
+  <view class="cards" wx:else>
+    <view class="addr-card" wx:for="{{list}}" wx:key="_id" data-addr="{{item}}" bind:tap="onPickAddress">
+      <view class="addr-main">
+        <view class="addr-line">
+          <text class="name">{{item.contactName}}</text>
+          <text class="phone">{{item.phone}}</text>
+          <text class="default-tag" wx:if="{{item.isDefault}}">默认</text>
+        </view>
+        <view class="addr-detail">{{item.region}} {{item.detail}}</view>
+      </view>
+      <view class="addr-ops">
+        <text class="op" data-addr="{{item}}" catch:tap="onEdit">编辑</text>
+        <text class="op del" data-id="{{item._id}}" catch:tap="onDelete">删除</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="footer">
+    <button class="add-btn" bind:tap="onAdd">+ 新增地址</button>
+  </view>
+</view>

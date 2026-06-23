@@ -1,0 +1,130 @@
+/* 订单列表 */
+.order-list {
+  min-height: 100vh;
+  background: #f6f6f6;
+}
+
+/* tabs */
+.tabs {
+  display: flex;
+  background: #fff;
+  padding: 0 24rpx;
+}
+
+.tab-item {
+  flex: 1;
+  padding: 32rpx 0;
+  text-align: center;
+  font-size: 30rpx;
+  color: #666;
+  position: relative;
+}
+
+.tab-item.active {
+  color: #07c160;
+  font-weight: bold;
+}
+
+.tab-item.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 6rpx;
+  background: #07c160;
+  border-radius: 3rpx;
+}
+
+/* 列表 */
+.list {
+  padding: 24rpx;
+}
+
+.loading, .empty {
+  text-align: center;
+  padding: 100rpx 0;
+  color: #999;
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+}
+
+/* 订单卡片 */
+.order-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  margin-bottom: 20rpx;
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.order-no {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.order-status {
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.order-body {
+  padding: 20rpx 0;
+  border-top: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.order-summary {
+  font-size: 30rpx;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+
+.order-time {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.order-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20rpx;
+}
+
+.order-time-label {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.arrow {
+  color: #ccc;
+  font-size: 32rpx;
+}
+
+/* 加载更多 */
+.load-more {
+  text-align: center;
+  padding: 32rpx;
+  color: #999;
+  font-size: 26rpx;
+}
+
+.load-text {
+  color: #07c160;
+}

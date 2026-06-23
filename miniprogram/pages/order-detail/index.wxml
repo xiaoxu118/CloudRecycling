@@ -1,1 +1,74 @@
-<view class="placeholder">订单详情（开发中）</view>
+<!--订单详情-->
+<view class="order-detail" wx:if="{{order}}">
+  <!-- 状态头 -->
+  <view class="status-head">
+    <view class="status-text">{{statusText}}</view>
+    <view class="order-no">单号 {{order.orderNo}}</view>
+  </view>
+
+  <!-- 进度条（终态不展示） -->
+  <view class="progress" wx:if="{{step > 0}}">
+    <view class="step {{step > index ? 'done' : ''}} {{step === index + 1 ? 'current' : ''}}" wx:for="{{steps}}" wx:key="*this">
+      <view class="dot">{{index + 1}}</view>
+      <view class="step-label">{{item}}</view>
+    </view>
+  </view>
+
+  <!-- 拒收原因 -->
+  <view class="block reject" wx:if="{{order.status === 'rejected'}}">
+    <view class="block-title">不可回收原因</view>
+    <view class="reject-text">{{order.remark || '平台判断该物品暂不可回收'}}</view>
+  </view>
+
+  <!-- 物品信息 -->
+  <view class="block">
+    <view class="block-title">物品信息</view>
+    <!-- 按品类 -->
+    <block wx:if="{{!isPhoto}}">
+      <view class="item-row" wx:for="{{order.items}}" wx:key="categoryId">
+        <text class="item-name">{{item.categoryName}}</text>
+        <text class="item-qty">{{item.estCount > 0 ? item.estCount + ' 件' : item.estWeight + ' kg'}}</text>
+      </view>
+    </block>
+    <!-- 拍照 -->
+    <view class="photo-grid" wx:else>
+      <image
+        class="photo-img"
+        wx:for="{{order.photoUrls}}"
+        wx:key="index"
+        src="{{item}}"
+        mode="aspectFill"
+        data-index="{{index}}"
+        bind:tap="previewPhoto"
+      />
+    </view>
+  </view>
+
+  <!-- 地址 -->
+  <view class="block">
+    <view class="block-title">回收地址</view>
+    <view class="addr-line">{{order.addressSnapshot.contactName}} {{order.addressSnapshot.phone}}</view>
+    <view class="addr-detail">{{order.addressSnapshot.region}} {{order.addressSnapshot.detail}}</view>
+  </view>
+
+  <!-- 预约 / 备注 -->
+  <view class="block">
+    <view class="info-row"><text class="k">预约时间</text><text class="v">{{order.appointDate}} {{order.appointSlot}}</text></view>
+    <view class="info-row" wx:if="{{order.remark}}"><text class="k">备注</text><text class="v">{{order.remark}}</text></view>
+  </view>
+
+  <!-- 金额 -->
+  <view class="block" wx:if="{{order.estimatePrice !== null || order.finalPrice !== null}}">
+    <view class="block-title">回收金额</view>
+    <view class="info-row" wx:if="{{order.estimatePrice !== null}}"><text class="k">平台估价</text><text class="v price">¥{{order.estimatePrice}}</text></view>
+    <view class="info-row" wx:if="{{order.finalWeight !== null}}"><text class="k">实际重量</text><text class="v">{{order.finalWeight}} kg</text></view>
+    <view class="info-row" wx:if="{{order.finalPrice !== null}}"><text class="k">最终金额</text><text class="v price">¥{{order.finalPrice}}</text></view>
+  </view>
+
+  <!-- 取消按钮 -->
+  <view class="footer" wx:if="{{canCancel}}">
+    <button class="cancel-btn" bind:tap="onCancel">取消订单</button>
+  </view>
+</view>
+
+<view class="state-tip" wx:elif="{{loading}}">加载中...</view>
