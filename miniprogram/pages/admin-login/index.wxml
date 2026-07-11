@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="panel">
+    <view class="icon {{status}}"></view>
+    <view class="title">管理后台登录</view>
+    <view class="message">{{message}}</view>
+
+    <view wx:if="{{openid}}" class="openid">
+      <text class="openid-label">当前 OpenID</text>
+      <text class="openid-value">{{openid}}</text>
+      <button class="copy-btn" bind:tap="onCopyOpenid">复制 OpenID</button>
+    </view>
+
+    <button
+      wx:if="{{status === 'ready' || status === 'error'}}"
+      class="primary-btn"
+      bind:tap="onConfirm"
+    >
+      确认登录
+    </button>
+    <button wx:if="{{status === 'loading'}}" class="primary-btn" loading="true">
+      确认中
+    </button>
+    <button wx:if="{{status === 'ready'}}" class="plain-btn" bind:tap="onCancel">
+      取消
+    </button>
+  </view>
+</view>
