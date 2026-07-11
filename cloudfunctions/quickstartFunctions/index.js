@@ -171,6 +171,7 @@ const insertRecord = async (event) => {
 const recycleCategories = require("./recycle/categories");
 const recycleAddress = require("./recycle/address");
 const recycleOrders = require("./recycle/orders");
+const recycleAdmin = require("./recycle/admin");
 
 // 删除数据
 const deleteRecord = async (event) => {
@@ -244,5 +245,24 @@ exports.main = async (event, context) => {
       return await recycleOrders.cancelOrder(event, OPENID);
     case "getTempFileURL":
       return await recycleOrders.getTempFileURL(event);
+    // 管理后台
+    case "initAdminCollections":
+      return await recycleAdmin.initAdminCollections();
+    case "adminCreateLoginTicket":
+      return await recycleAdmin.adminCreateLoginTicket(event);
+    case "adminConfirmLoginTicket":
+      return await recycleAdmin.adminConfirmLoginTicket(event, OPENID);
+    case "adminCheckLoginTicket":
+      return await recycleAdmin.adminCheckLoginTicket(event);
+    case "adminListOrders":
+      return await recycleAdmin.adminListOrders(event);
+    case "adminGetOrderDetail":
+      return await recycleAdmin.adminGetOrderDetail(event);
+    case "adminUpdateOrder":
+      return await recycleAdmin.adminUpdateOrder(event);
+    case "adminListCategories":
+      return await recycleAdmin.adminListCategories(event);
+    case "adminSaveCategory":
+      return await recycleAdmin.adminSaveCategory(event);
   }
 };

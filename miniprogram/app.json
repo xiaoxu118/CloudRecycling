@@ -5,6 +5,7 @@
     "pages/order-create/index",
     "pages/address/list",
     "pages/address/edit",
+    "pages/admin-login/index",
     "pages/order-list/index",
     "pages/order-detail/index",
     "pages/user/index",

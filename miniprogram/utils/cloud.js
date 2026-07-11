@@ -9,6 +9,9 @@ const ERR_MSG_MAP = {
   ORDER_STATUS_INVALID: "当前状态不可操作",
   BELOW_MIN_QUANTITY: "未达最低起收量",
   NO_PERMISSION: "无权限",
+  ADMIN_SESSION_REQUIRED: "请先登录管理后台",
+  ADMIN_SESSION_EXPIRED: "管理登录已过期",
+  LOGIN_TICKET_EXPIRED: "登录二维码已过期",
   DB_ERROR: "服务繁忙，请稍后再试",
 };
 
@@ -47,7 +50,7 @@ const callCloud = (type, data = {}, opts = {}) => {
       if (toast) {
         wx.showToast({ title: ERR_MSG_MAP[code] || "操作失败", icon: "none" });
       }
-      return { ok: false, errMsg: code };
+      return { ok: false, errMsg: code, data: result.data };
     })
     .catch((err) => {
       // 平台级错误：环境未配置 / 云函数未部署，用弹窗提示（沿用现有套路）
