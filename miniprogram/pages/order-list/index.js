@@ -1,24 +1,42 @@
 const { callCloud } = require("../../utils/cloud");
 const { checkLogin } = require("../../utils/auth");
 
-const STATUS_MAP = {
-  submitted: "已提交",
-  confirmed: "已确认",
-  assigned: "回收中",
-  recycling: "回收中",
-  completed: "已完成",
-  canceled: "已取消",
-  rejected: "暂不可回收",
+// 状态映射：与设计稿一致的标签、颜色、图标
+//   type: submitted=待上门(green时钟), processing=进行中(blue卡车), completed=已完成(green勾选), canceled=已取消(gray)
+const STATUS_META = {
+  submitted: {
+    label: "待上门",
+    color: "green",
+    icon: "clock-green",
+  },
+  processing: {
+    label: "进行中",
+    color: "blue",
+    icon: "truck-blue",
+  },
+  completed: {
+    label: "已完成",
+    color: "green",
+    icon: "check-green",
+  },
+  canceled: {
+    label: "已取消",
+    color: "gray",
+    icon: "",
+  },
 };
 
-const STATUS_COLOR = {
-  submitted: "#999",
-  confirmed: "#ff9800",
-  assigned: "#07c160",
-  recycling: "#07c160",
-  completed: "#07c160",
-  canceled: "#999",
-  rejected: "#f44336",
+// 格式化预约时间段展示
+const formatSlot = (slot) => {
+  if (!slot) return "";
+  // "14:00-18:00" → "14:00-18:00"（保持）
+  return slot;
+};
+
+// 把 items 数组提取为品类名数组（给标签用）
+const extractCategoryNames = (items) => {
+  if (!Array.isArray(items) || !items.length) return [];
+  return items.map((i) => i.categoryName).filter(Boolean);
 };
 
 Page({
@@ -26,67 +44,121 @@ Page({
     tabs: [
       { key: "all", label: "全部" },
       { key: "ongoing", label: "进行中" },
-      { key: "done", label: "已结束" },
+      { key: "completed", label: "已完成" },
     ],
     activeTab: "all",
+    counts: { all: 0, ongoing: 0, completed: 0 },
+    keyword: "",
     list: [],
     loading: false,
     hasMore: true,
     page: 1,
     total: 0,
+    loadError: "",
   },
 
   onShow() {
     if (!checkLogin()) return;
-    this.loadList(true);
+    this.loadList(true, true);
   },
 
   onTabChange(e) {
     const key = e.currentTarget.dataset.key;
-    this.setData({ activeTab: key, page: 1, list: [], hasMore: true });
-    this.loadList();
+    this.setData({ activeTab: key, page: 1, list: [], hasMore: true, loadError: "" });
+    this.loadList(true);
   },
 
-  async loadList(reset = false) {
-    if (!this.data.hasMore) return;
-    
-    this.setData({ loading: true });
-    
+  onKeywordInput(e) {
+    this.setData({ keyword: e.detail.value });
+  },
+
+  onKeywordConfirm() {
+    this.loadList(true);
+  },
+
+  onClearKeyword() {
+    this.setData({ keyword: "" });
+    this.loadList(true);
+  },
+
+  async loadList(reset = false, includeCounts = false) {
+    if (reset) {
+      this.setData({ page: 1, hasMore: true });
+    }
+    if (!this.data.hasMore && !reset) return;
+
+    this.setData({ loading: true, loadError: "" });
+    const currentPage = reset ? 1 : this.data.page;
+
     try {
-      const res = await callCloud("getOrderList", {
-        statusGroup: this.data.activeTab === "all" ? "" : this.data.activeTab,
-        page: this.data.page,
-        pageSize: 20,
-      });
-      
+      const filter = this.buildFilterPayload();
+      const res = await callCloud(
+        "getOrderList",
+        {
+          ...filter,
+          page: currentPage,
+          pageSize: 20,
+          includeCounts,
+        },
+        { toast: false }
+      );
+
       if (res.ok) {
-        const { list, total, hasMore } = res.data;
-        const formattedList = list.map((item) => ({
-          ...item,
-          statusText: STATUS_MAP[item.status] || item.status,
-          statusColor: STATUS_COLOR[item.status] || "#999",
-          timeText: this.formatTime(item.createTime),
-        }));
-        
-        this.setData({
+        const { list, total, hasMore, counts } = res.data;
+        const formattedList = list.map((item) => this.formatItem(item));
+
+        const nextData = {
           list: reset ? formattedList : [...this.data.list, ...formattedList],
           total,
           hasMore,
-          page: reset ? 1 : this.data.page + 1,
-        });
+          page: currentPage + 1,
+        };
+        if (counts) nextData.counts = counts;
+        this.setData(nextData);
+      } else {
+        this.setData({ loadError: "订单加载失败，请稍后重试" });
       }
     } catch (e) {
       console.error("loadList failed:", e);
+      this.setData({ loadError: "订单加载失败，请稍后重试" });
     } finally {
       this.setData({ loading: false });
+      wx.stopPullDownRefresh();
     }
   },
 
+  formatItem(item) {
+    const meta = STATUS_META[item.status] || STATUS_META.submitted;
+    const address = item.addressSnapshot || {};
+    const addressText = [address.region, address.detail].filter(Boolean).join(" ") || item.summary;
+    const catNames = extractCategoryNames(item.items);
+    const appointText = item.appointDate
+      ? `${item.appointDate.replace(/-/g, "/").slice(5)} · ${formatSlot(item.appointSlot)}`
+      : "";
+    return {
+      ...item,
+      statusLabel: meta.label,
+      statusColor: meta.color,
+      statusIcon: meta.icon,
+      addressText,
+      appointText,
+      categoryText: catNames.join("、"),
+    };
+  },
+
+  buildFilterPayload() {
+    const filter = {};
+    if (this.data.activeTab === "ongoing") {
+      filter.status = ["submitted", "processing"];
+    } else if (this.data.activeTab === "completed") {
+      filter.status = "completed";
+    }
+    // 关键词暂不在后端搜索字段内，此处只做本地占位（后续 adminListOrders 有 keyword 支持可加）
+    return filter;
+  },
+
   onPullDownRefresh() {
-    this.setData({ page: 1, list: [], hasMore: true });
-    this.loadList().finally(() => {
-      wx.stopPullDownRefresh();
-    });
+    this.loadList(true, true);
   },
 
   onReachBottom() {
@@ -95,18 +167,16 @@ Page({
     }
   },
 
+  retryLoad() {
+    this.loadList(true);
+  },
+
   goDetail(e) {
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({ url: `/pages/order-detail/index?id=${id}` });
   },
 
-  formatTime(timestamp) {
-    if (!timestamp) return "";
-    const date = new Date(timestamp);
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    const h = String(date.getHours()).padStart(2, "0");
-    const min = String(date.getMinutes()).padStart(2, "0");
-    return `${m}-${d} ${h}:${min}`;
+  goCreate() {
+    wx.switchTab({ url: "/pages/home/index" });
   },
 });

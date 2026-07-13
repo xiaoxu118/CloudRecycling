@@ -56,11 +56,6 @@ const fetchOpenid = async () => {
 };
 
 const checkLogin = (options = {}) => {
-  // ⚠️ 暂时关闭登录鉴权：开发阶段所有页面直接放行。
-  // 恢复鉴权时删除下面这行 return true，启用其下原始逻辑即可。
-  return true;
-
-  /* eslint-disable no-unreachable */
   const { redirect = true, showToast = true } = options;
 
   if (!loginStatus.loggedIn) {
@@ -77,7 +72,22 @@ const checkLogin = (options = {}) => {
   return true;
 };
 
+// 启动时静默拉 openid：
+// - 若本地已有登录态但 openid 缺失，补一次
+// - 若本地没登录态，也预热一次云函数身份（可用于埋点/预请求）
+const ensureOpenid = async () => {
+  if (loginStatus.openid) return loginStatus.openid;
+  const openid = await fetchOpenid();
+  if (loginStatus.loggedIn) {
+    saveLoginStatus(loginStatus.userInfo, openid, loginStatus.phone);
+  } else {
+    loginStatus.openid = openid;
+  }
+  return openid;
+};
+
 module.exports = {
+  ensureOpenid,
   loadLoginStatus,
   saveLoginStatus,
   clearLoginStatus,

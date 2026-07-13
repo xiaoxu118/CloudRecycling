@@ -3,16 +3,17 @@ const { callCloud } = require("../../utils/cloud");
 const { checkLogin } = require("../../utils/auth");
 
 const STATUS_MAP = {
-  submitted: { text: "已提交，等待确认", step: 1 },
-  confirmed: { text: "已确认，等待上门", step: 2 },
-  assigned: { text: "回收员处理中", step: 3 },
-  recycling: { text: "回收员处理中", step: 3 },
-  completed: { text: "已完成", step: 4 },
+  submitted: { text: "已提交", step: 1 },
+  processing: { text: "处理中", step: 2 },
+  confirmed: { text: "处理中", step: 2 },
+  assigned: { text: "处理中", step: 2 },
+  recycling: { text: "处理中", step: 2 },
+  completed: { text: "已完成", step: 3 },
   canceled: { text: "已取消", step: 0 },
-  rejected: { text: "暂不可回收", step: 0 },
+  rejected: { text: "已取消", step: 0 },
 };
 
-const STEPS = ["已提交", "已确认", "上门回收", "已完成"];
+const STEPS = ["已提交", "处理中", "已完成"];
 
 Page({
   data: {
@@ -22,7 +23,6 @@ Page({
     step: 0,
     steps: STEPS,
     canCancel: false,
-    isPhoto: false,
     loading: true,
   },
 
@@ -42,14 +42,26 @@ Page({
     this.setData({ loading: true });
     const res = await callCloud("getOrderDetail", { id: this.data.id });
     if (res.ok) {
-      const order = res.data;
+      const order = {
+        ...res.data,
+        completedAtText: this.formatTime(res.data.completedAt),
+        canceledAtText: this.formatTime(res.data.canceledAt),
+      };
+      const hasFinalWeight = order.finalWeight != null && Number(order.finalWeight) > 0;
+      const hasFinalCount = order.finalCount != null && Number(order.finalCount) > 0;
+      const hasFinalPrice = order.finalPrice != null && Number(order.finalPrice) > 0;
+      const hasEstimatePrice = order.estimatePrice != null;
+      order.hasAmountInfo = hasEstimatePrice || hasFinalWeight || hasFinalCount || hasFinalPrice;
+      order.hasFinalWeight = hasFinalWeight;
+      order.hasFinalCount = hasFinalCount;
+      order.hasFinalPrice = hasFinalPrice;
+      order.hasEstimatePrice = hasEstimatePrice;
       const sm = STATUS_MAP[order.status] || { text: order.status, step: 0 };
       this.setData({
         order,
         statusText: sm.text,
         step: sm.step,
-        canCancel: order.status === "submitted" || order.status === "confirmed",
-        isPhoto: order.source === "photo",
+        canCancel: order.status === "submitted",
         loading: false,
       });
     } else {
@@ -64,6 +76,21 @@ Page({
     const idx = e.currentTarget.dataset.index;
     const urls = this.data.order.photoUrls || [];
     wx.previewImage({ current: urls[idx], urls });
+  },
+
+  previewTransfer(e) {
+    const idx = e.currentTarget.dataset.index;
+    const urls = this.data.order.transferProofUrls || [];
+    wx.previewImage({ current: urls[idx], urls });
+  },
+
+  formatTime(timestamp) {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
+      date.getHours()
+    )}:${pad(date.getMinutes())}`;
   },
 
   onCancel() {

@@ -227,6 +227,24 @@ exports.main = async (event, context) => {
       return await recycleCategories.initRecycleDB();
     case "listCategories":
       return await recycleCategories.listCategories();
+    case "getRecycleSettings":
+      return await recycleOrders.getRecycleSettings(event);
+    case "getHomeBanner":
+      return await recycleOrders.getHomeBanner();
+    case "getHomeData": {
+      const [categoriesRes, bannerRes] = await Promise.all([
+        recycleCategories.listCategories(),
+        recycleOrders.getHomeBanner(),
+      ]);
+      if (!categoriesRes.success) return categoriesRes;
+      return {
+        success: true,
+        data: {
+          categories: categoriesRes.data || [],
+          banner: (bannerRes && bannerRes.data) || {},
+        },
+      };
+    }
     // 地址
     case "getAddressList":
       return await recycleAddress.getAddressList(event, OPENID);
@@ -239,6 +257,10 @@ exports.main = async (event, context) => {
       return await recycleOrders.createOrder(event, OPENID);
     case "getOrderList":
       return await recycleOrders.getOrderList(event, OPENID);
+    case "getUserSummary":
+      return await recycleOrders.getUserSummary(event, OPENID);
+    case "devSeedOrders":
+      return await recycleOrders.devSeedOrders(event, OPENID);
     case "getOrderDetail":
       return await recycleOrders.getOrderDetail(event, OPENID);
     case "cancelOrder":
@@ -264,5 +286,9 @@ exports.main = async (event, context) => {
       return await recycleAdmin.adminListCategories(event);
     case "adminSaveCategory":
       return await recycleAdmin.adminSaveCategory(event);
+    case "adminGetSettings":
+      return await recycleAdmin.adminGetSettings(event);
+    case "adminSaveSettings":
+      return await recycleAdmin.adminSaveSettings(event);
   }
 };

@@ -34,6 +34,7 @@
         <div class="logo">云回收</div>
         <button class="nav-btn active" data-view="orders">订单管理</button>
         <button class="nav-btn" data-view="categories">品类管理</button>
+        <button class="nav-btn" data-view="settings">系统配置</button>
         <button id="logoutBtn" class="logout-btn">退出登录</button>
       </aside>
 
@@ -51,12 +52,9 @@
             <select id="statusFilter">
               <option value="">全部状态</option>
               <option value="submitted">已提交</option>
-              <option value="confirmed">已确认</option>
-              <option value="assigned">已分配</option>
-              <option value="recycling">回收中</option>
+              <option value="processing">处理中</option>
               <option value="completed">已完成</option>
               <option value="canceled">已取消</option>
-              <option value="rejected">暂不可回收</option>
             </select>
             <input id="keywordInput" placeholder="搜索订单号" />
             <button id="searchOrdersBtn" class="secondary-btn">查询</button>
@@ -106,6 +104,27 @@
             </table>
           </div>
         </section>
+
+        <section id="settingsView" class="content-view hidden">
+          <form id="settingsForm" class="settings-form">
+            <label>
+              最低起收重量 kg
+              <input id="minWeightInput" name="minWeightKg" type="number" min="0" step="0.1" />
+            </label>
+            <label>
+              最低起收件数
+              <input id="minCountInput" name="minCount" type="number" min="0" step="1" />
+            </label>
+            <label class="checkbox-row">
+              <input id="photoCheckInput" name="photoOrderCheckMinQuantity" type="checkbox" />
+              拍照提交也校验最低起收
+            </label>
+            <div class="modal-actions">
+              <button id="reloadSettingsBtn" type="button" class="secondary-btn">刷新</button>
+              <button type="submit" class="primary-btn">保存配置</button>
+            </div>
+          </form>
+        </section>
       </main>
     </div>
 
@@ -121,7 +140,7 @@
     </div>
 
     <script src="./config.js"></script>
-    <script src="https://imgcache.qq.com/qcloud/tcbjs/1.10.10/tcb.js"></script>
+    <script src="https://static.cloudbase.net/cloudbase-js-sdk/2.28.6/cloudbase.full.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

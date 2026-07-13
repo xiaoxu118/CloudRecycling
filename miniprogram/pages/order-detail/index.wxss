@@ -2,7 +2,7 @@
 .order-detail {
   min-height: 100vh;
   background: #f6f6f6;
-  padding-bottom: 140rpx;
+  padding-bottom: 48rpx;
 }
 .state-tip {
   text-align: center;
@@ -11,28 +11,12 @@
   padding-top: 200rpx;
 }
 
-/* 状态头 */
-.status-head {
-  background: linear-gradient(135deg, #07c160, #10ad7a);
-  color: #fff;
-  padding: 48rpx 40rpx;
-}
-.status-text {
-  font-size: 40rpx;
-  font-weight: bold;
-}
-.order-no {
-  margin-top: 16rpx;
-  font-size: 26rpx;
-  opacity: 0.9;
-}
-
 /* 进度条 */
 .progress {
   display: flex;
   background: #fff;
   padding: 40rpx 20rpx;
-  margin: 20rpx 24rpx;
+  margin: 24rpx;
   border-radius: 16rpx;
 }
 .step {
@@ -49,6 +33,17 @@
   color: #fff;
   font-size: 26rpx;
   margin: 0 auto;
+}
+
+.cancel-action {
+  margin: 20rpx 24rpx;
+  padding: 0 24rpx;
+}
+.cancel-vant-btn {
+  height: 80rpx !important;
+  font-size: 28rpx !important;
+  font-weight: 600 !important;
+  border-width: 2rpx !important;
 }
 .step.done .dot,
 .step.current .dot {
@@ -115,6 +110,22 @@
   font-size: 30rpx;
   color: #666;
 }
+.item-empty {
+  padding: 8rpx 0 16rpx;
+  font-size: 27rpx;
+  color: #999;
+}
+
+.goods-photos {
+  margin-top: 20rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+.photo-title {
+  margin-bottom: 12rpx;
+  font-size: 26rpx;
+  color: #666;
+}
 
 .photo-grid {
   display: flex;
@@ -142,6 +153,14 @@
   justify-content: space-between;
   padding: 14rpx 0;
 }
+.info-row.column {
+  display: block;
+}
+.info-row.column .v {
+  display: block;
+  margin-top: 10rpx;
+  line-height: 1.5;
+}
 .info-row .k {
   font-size: 28rpx;
   color: #999;
@@ -154,21 +173,8 @@
   color: #e64340;
   font-weight: bold;
 }
-
-/* 底部取消 */
-.footer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 20rpx 32rpx;
-  background: #fff;
-  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.05);
-}
-.cancel-btn {
-  background: #fff;
-  color: #e64340;
-  font-size: 32rpx;
-  border: 1rpx solid #e64340;
-  border-radius: 44rpx;
+.order-number {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 26rpx !important;
+  color: #666 !important;
 }

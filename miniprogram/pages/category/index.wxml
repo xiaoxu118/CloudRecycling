@@ -15,7 +15,6 @@
       data-index="{{index}}"
       bind:tap="toggleSelect"
     >
-      <view class="cat-icon">♻️</view>
       <view class="cat-info">
         <view class="cat-name">{{item.name}}</view>
         <view class="cat-price">{{item.priceRef}} · 按{{item.unit}}计</view>

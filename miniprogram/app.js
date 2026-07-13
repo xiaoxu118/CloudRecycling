@@ -1,5 +1,5 @@
 // app.js
-const { loadLoginStatus, isLoggedIn } = require("./utils/auth");
+const { loadLoginStatus, isLoggedIn, ensureOpenid } = require("./utils/auth");
 
 App({
   onLaunch: function () {
@@ -19,6 +19,8 @@ App({
         env: this.globalData.env,
         traceUser: true,
       });
+      // 打开小程序就拉一次 openid，保证 checkLogin 前就有身份可用
+      ensureOpenid().catch((e) => console.warn("ensureOpenid failed:", e));
     }
   },
 

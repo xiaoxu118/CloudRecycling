@@ -11,14 +11,19 @@ Page({
   data: {
     source: "category",
     items: [],
+    categoryOptions: [],
+    selectedCategory: null,
     photos: [],
     photoUrls: [],
+    maxPhotos: 9,
     pickedAddress: null,
     appointDate: "",
     appointSlot: "",
     remark: "",
     submitting: false,
     minWeight: 5,
+    minCount: 0,
+    photoOrderCheckMinQuantity: false,
     today: "",
   },
 
@@ -26,7 +31,11 @@ Page({
     if (!checkLogin()) return;
 
     const source = options.source || "category";
-    this.setData({ source, today: this.getToday() });
+    this.setData({
+      source,
+      today: this.getToday(),
+      maxPhotos: source === "general" ? 6 : 9,
+    });
 
     if (source === "category") {
       const selected = getApp().globalData.selectedCategories || [];
@@ -36,13 +45,50 @@ Page({
         estCount: 0,
       }));
       this.setData({ items });
+    } else if (source === "general") {
+      this.loadGeneralCategories();
     }
 
-    const addr = getApp().globalData.pickedAddress;
+    this.loadRecycleSettings();
+  },
+
+  onShow() {
+    const app = getApp();
+    const addr = app.globalData && app.globalData.pickedAddress;
     if (addr) {
       this.setData({ pickedAddress: addr });
-      getApp().globalData.pickedAddress = null;
+      app.globalData.pickedAddress = null;
     }
+  },
+
+  async loadRecycleSettings() {
+    const res = await callCloud("getRecycleSettings", {}, { toast: false });
+    if (res.ok && res.data) {
+      this.setData({
+        minWeight: Number(res.data.minWeightKg) || 5,
+        minCount: Number(res.data.minCount) || 0,
+        photoOrderCheckMinQuantity: res.data.photoOrderCheckMinQuantity === true,
+      });
+    }
+  },
+
+  async loadGeneralCategories() {
+    const res = await callCloud("listCategories", {}, { toast: false });
+    const categories = res.ok && Array.isArray(res.data) ? res.data : [];
+    this.setData({
+      categoryOptions: [
+        ...categories.map((item) => ({
+          categoryId: item._id,
+          categoryName: item.name,
+        })),
+        { categoryId: "", categoryName: "其他" },
+      ],
+    });
+  },
+
+  onGeneralCategoryChange(e) {
+    const selectedCategory = this.data.categoryOptions[Number(e.detail.value)] || null;
+    this.setData({ selectedCategory });
   },
 
   onQuantityInput(e) {
@@ -53,8 +99,10 @@ Page({
   },
 
   onPhotoUpload() {
+    const remaining = this.data.maxPhotos - this.data.photos.length;
+    if (remaining <= 0) return;
     wx.chooseMedia({
-      count: 9 - this.data.photos.length,
+      count: remaining,
       mediaType: ["image"],
       sourceType: ["album", "camera"],
       success: async (res) => {
@@ -98,11 +146,26 @@ Page({
   },
 
   goAddress() {
-    wx.navigateTo({ url: "/pages/address/list?mode=select" });
+    wx.navigateTo({
+      url: "/pages/address/list?mode=select",
+      success: (res) => {
+        res.eventChannel.on("selectAddress", (addr) => {
+          if (!addr || !addr._id) return;
+          this.setData({ pickedAddress: addr });
+          const app = getApp();
+          if (app.globalData) app.globalData.pickedAddress = null;
+        });
+      },
+    });
   },
 
   onDateChange(e) {
-    this.setData({ appointDate: e.detail.value });
+    const appointDate = e.detail.value;
+    if (appointDate < this.data.today) {
+      wx.showToast({ title: "不能选择今天之前的日期", icon: "none" });
+      return;
+    }
+    this.setData({ appointDate });
   },
 
   onSlotChange(e) {
@@ -122,13 +185,28 @@ Page({
   },
 
   async onSubmit() {
-    const { source, items, photos, pickedAddress, appointDate, appointSlot, remark } = this.data;
+    const {
+      source,
+      items,
+      photos,
+      selectedCategory,
+      pickedAddress,
+      appointDate,
+      appointSlot,
+      remark,
+    } = this.data;
 
     if (!pickedAddress) {
       return wx.showToast({ title: "请选择回收地址", icon: "none" });
     }
+    if (!pickedAddress.phone) {
+      return wx.showToast({ title: "请先完善地址联系电话", icon: "none" });
+    }
     if (!appointDate) {
       return wx.showToast({ title: "请选择预约日期", icon: "none" });
+    }
+    if (appointDate < this.data.today) {
+      return wx.showToast({ title: "不能选择今天之前的日期", icon: "none" });
     }
     if (!appointSlot) {
       return wx.showToast({ title: "请选择预约时间段", icon: "none" });
@@ -141,10 +219,17 @@ Page({
       }
 
       const totalWeight = validItems.reduce((sum, i) => sum + (i.estWeight || 0), 0);
-      if (totalWeight < this.data.minWeight) {
-        return wx.showToast({ title: `未达最低起收量(${this.data.minWeight}kg)`, icon: "none" });
+      const totalCount = validItems.reduce((sum, i) => sum + (i.estCount || 0), 0);
+      const meetWeight = this.data.minWeight > 0 && totalWeight >= this.data.minWeight;
+      const meetCount = this.data.minCount > 0 && totalCount >= this.data.minCount;
+      const noMin = this.data.minWeight <= 0 && this.data.minCount <= 0;
+      if (!noMin && !meetWeight && !meetCount) {
+        const tips = [];
+        if (this.data.minWeight > 0) tips.push(`${this.data.minWeight}kg`);
+        if (this.data.minCount > 0) tips.push(`${this.data.minCount}件`);
+        return wx.showToast({ title: `未达最低起收量(${tips.join("或")})`, icon: "none" });
       }
-    } else {
+    } else if (source === "photo") {
       if (photos.length === 0) {
         return wx.showToast({ title: "请至少上传一张照片", icon: "none" });
       }
@@ -168,8 +253,20 @@ Page({
           estWeight: i.estWeight,
           estCount: i.estCount,
         }));
-      } else {
+      } else if (source === "photo") {
         params.photos = photos;
+      } else if (source === "general") {
+        params.photos = photos;
+        params.items = selectedCategory
+          ? [
+              {
+                categoryId: selectedCategory.categoryId,
+                categoryName: selectedCategory.categoryName,
+                estWeight: 0,
+                estCount: 0,
+              },
+            ]
+          : [];
       }
 
       const res = await callCloud("createOrder", params);

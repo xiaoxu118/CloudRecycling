@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 64 64" fill="none">
+  <!-- 等轴立方体包裹盒：顶面菱形 + 正面 + 右面 -->
+  <!-- 顶面菱形 -->
+  <path d="M32 12 L50 23 L32 34 L14 23 Z" stroke="#889990" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+  <!-- 左面 -->
+  <path d="M14 23 L32 34 L32 54 L14 43 Z" stroke="#889990" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+  <!-- 右面 -->
+  <path d="M50 23 L32 34 L32 54 L50 43 Z" stroke="#889990" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+  <!-- 顶面十字打包带（纵向中缝+横向环绕） -->
+  <line x1="32" y1="12" x2="32" y2="34" stroke="#889990" stroke-width="2.4" stroke-linecap="round"/>
+  <line x1="14" y1="23" x2="50" y2="23" stroke="#889990" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

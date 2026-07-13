@@ -2,7 +2,6 @@
 <view class="addr-edit">
   <!-- 地图选点 -->
   <view class="map-pick" bind:tap="onChooseLocation">
-    <text class="map-icon">🗺️</text>
     <text class="map-text">地图选点（自动填省市区+地址）</text>
     <text class="arrow">›</text>
   </view>

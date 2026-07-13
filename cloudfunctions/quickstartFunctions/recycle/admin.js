@@ -8,6 +8,26 @@ const _ = db.command;
 const LOGIN_TICKET_TTL = 5 * 60 * 1000;
 const ADMIN_SESSION_TTL = 12 * 60 * 60 * 1000;
 const PAGE_SIZE_MAX = 50;
+// 临时开发开关：开启后所有管理接口跳过管理员 Session 校验。
+// ⚠️ 维护完成后必须改回 false，并重新部署云函数。
+const DEV_BYPASS_ADMIN_AUTH = true;
+const DEFAULT_RECYCLE_SETTINGS = {
+  minWeightKg: 5,
+  minCount: 0,
+  photoOrderCheckMinQuantity: false,
+};
+
+const normalizeStatus = (status) => {
+  if (["confirmed", "assigned", "recycling"].includes(status)) return "processing";
+  if (status === "rejected") return "canceled";
+  return status;
+};
+
+const getTempUrls = async (fileIDs) => {
+  if (!Array.isArray(fileIDs) || fileIDs.length === 0) return [];
+  const tmp = await cloud.getTempFileURL({ fileList: fileIDs });
+  return tmp.fileList.map((f) => f.tempFileURL).filter(Boolean);
+};
 
 const randomId = (prefix = "") => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
@@ -37,6 +57,13 @@ const getAdminByOpenid = async (openid) => {
 };
 
 const assertAdminSession = async (sessionToken) => {
+  if (DEV_BYPASS_ADMIN_AUTH) {
+    return {
+      ok: true,
+      admin: { name: "临时开发管理员", role: "admin" },
+      session: null,
+    };
+  }
   if (!sessionToken) {
     return { ok: false, errMsg: "ADMIN_SESSION_REQUIRED" };
   }
@@ -58,7 +85,7 @@ const assertAdminSession = async (sessionToken) => {
 };
 
 const initAdminCollections = async () => {
-  for (const name of ["admins", "admin_login_tickets", "admin_sessions"]) {
+  for (const name of ["admins", "admin_login_tickets", "admin_sessions", "settings"]) {
     await ensureCollection(name);
   }
   return { success: true };
@@ -223,15 +250,20 @@ const adminListOrders = async (event) => {
   if (pageSize > PAGE_SIZE_MAX) pageSize = PAGE_SIZE_MAX;
 
   const where = {};
-  if (status) where.status = status;
+  if (status === "processing") {
+    where.status = _.in(["processing", "confirmed", "assigned", "recycling"]);
+  } else if (status === "canceled") {
+    where.status = _.in(["canceled", "rejected"]);
+  } else if (status) {
+    where.status = status;
+  }
   if (keyword) {
     where.orderNo = db.RegExp({ regexp: keyword, options: "i" });
   }
 
   try {
     const coll = db.collection("orders");
-    const countRes = await coll.where(where).count();
-    const listRes = await coll
+    const listPromise = coll
       .where(where)
       .orderBy("createTime", "desc")
       .skip((page - 1) * pageSize)
@@ -251,10 +283,18 @@ const adminListOrders = async (event) => {
         updateTime: true,
       })
       .get();
+    const [countRes, listRes] = await Promise.all([
+      coll.where(where).count(),
+      listPromise,
+    ]);
+    const list = listRes.data.map((item) => ({
+      ...item,
+      status: normalizeStatus(item.status),
+    }));
     return {
       success: true,
       data: {
-        list: listRes.data,
+        list,
         total: countRes.total,
         hasMore: page * pageSize < countRes.total,
       },
@@ -273,12 +313,17 @@ const adminGetOrderDetail = async (event) => {
   try {
     const res = await db.collection("orders").doc(event.id).get();
     const order = res.data;
-    let photoUrls = [];
-    if (Array.isArray(order.photos) && order.photos.length > 0) {
-      const tmp = await cloud.getTempFileURL({ fileList: order.photos });
-      photoUrls = tmp.fileList.map((f) => f.tempFileURL);
-    }
-    return { success: true, data: { ...order, photoUrls } };
+    const photoUrls = await getTempUrls(order.photos);
+    const transferProofUrls = await getTempUrls(order.transferProofs);
+    return {
+      success: true,
+      data: {
+        ...order,
+        status: normalizeStatus(order.status),
+        photoUrls,
+        transferProofUrls,
+      },
+    };
   } catch (e) {
     return { success: false, errMsg: "ORDER_NOT_FOUND" };
   }
@@ -290,31 +335,46 @@ const adminUpdateOrder = async (event) => {
   const { id, status } = event;
   if (!id || !status) return { success: false, errMsg: "PARAM_INVALID" };
 
-  const allowStatuses = [
-    "submitted",
-    "confirmed",
-    "assigned",
-    "recycling",
-    "completed",
-    "canceled",
-    "rejected",
-  ];
+  const allowStatuses = ["submitted", "processing", "completed", "canceled"];
   if (!allowStatuses.includes(status)) {
     return { success: false, errMsg: "PARAM_INVALID" };
+  }
+
+  const finalPrice = Number(event.finalPrice);
+  const finalWeight = Number(event.finalWeight);
+  const finalCount = Number(event.finalCount);
+  const transferProofs = Array.isArray(event.transferProofs) ? event.transferProofs : [];
+  const cancelReason = (event.cancelReason || event.rejectReason || "").trim();
+
+  if (status === "completed") {
+    if (!(finalPrice > 0)) return { success: false, errMsg: "FINAL_PRICE_REQUIRED" };
+    if (!(finalWeight > 0) && !(finalCount > 0)) {
+      return { success: false, errMsg: "FINAL_QUANTITY_REQUIRED" };
+    }
+    if (transferProofs.length === 0) {
+      return { success: false, errMsg: "TRANSFER_PROOF_REQUIRED" };
+    }
+  }
+  if (status === "canceled" && !cancelReason) {
+    return { success: false, errMsg: "CANCEL_REASON_REQUIRED" };
   }
 
   const data = {
     status,
     updateTime: Date.now(),
   };
-  ["estimatePrice", "finalWeight", "finalPrice"].forEach((key) => {
+  ["estimatePrice", "finalWeight", "finalCount", "finalPrice"].forEach((key) => {
     if (event[key] !== undefined && event[key] !== "") {
       data[key] = Number(event[key]);
     }
   });
-  ["recyclerId", "rejectReason", "adminRemark"].forEach((key) => {
+  ["recyclerId", "recyclerName", "recyclerPhone", "adminRemark"].forEach((key) => {
     if (event[key] !== undefined) data[key] = event[key] || "";
   });
+  if (event.transferProofs !== undefined) data.transferProofs = transferProofs;
+  if (cancelReason) data.cancelReason = cancelReason;
+  if (status === "completed") data.completedAt = Date.now();
+  if (status === "canceled") data.canceledAt = Date.now();
 
   try {
     await db.collection("orders").doc(id).update({ data });
@@ -362,6 +422,59 @@ const adminSaveCategory = async (event) => {
   }
 };
 
+const adminGetSettings = async (event) => {
+  const auth = await assertAdminSession(event.sessionToken);
+  if (!auth.ok) return { success: false, errMsg: auth.errMsg };
+  try {
+    const res = await db
+      .collection("settings")
+      .where({ key: "recycle_rules" })
+      .limit(1)
+      .get();
+    const data = res.data[0] || {};
+    return {
+      success: true,
+      data: {
+        ...DEFAULT_RECYCLE_SETTINGS,
+        minWeightKg: Number(data.minWeightKg) || DEFAULT_RECYCLE_SETTINGS.minWeightKg,
+        minCount: Number(data.minCount) || DEFAULT_RECYCLE_SETTINGS.minCount,
+        photoOrderCheckMinQuantity: data.photoOrderCheckMinQuantity === true,
+      },
+    };
+  } catch (e) {
+    return { success: false, errMsg: "DB_ERROR" };
+  }
+};
+
+const adminSaveSettings = async (event) => {
+  const auth = await assertAdminSession(event.sessionToken);
+  if (!auth.ok) return { success: false, errMsg: auth.errMsg };
+  const settings = event.settings || {};
+  const now = Date.now();
+  const data = {
+    key: "recycle_rules",
+    minWeightKg: Number(settings.minWeightKg) || DEFAULT_RECYCLE_SETTINGS.minWeightKg,
+    minCount: Number(settings.minCount) || 0,
+    photoOrderCheckMinQuantity: settings.photoOrderCheckMinQuantity === true,
+    updateTime: now,
+  };
+  try {
+    const res = await db
+      .collection("settings")
+      .where({ key: "recycle_rules" })
+      .limit(1)
+      .get();
+    if (res.data[0]) {
+      await db.collection("settings").doc(res.data[0]._id).update({ data });
+    } else {
+      await db.collection("settings").add({ data: { ...data, createTime: now } });
+    }
+    return { success: true, data };
+  } catch (e) {
+    return { success: false, errMsg: "DB_ERROR" };
+  }
+};
+
 module.exports = {
   initAdminCollections,
   adminCreateLoginTicket,
@@ -372,4 +485,6 @@ module.exports = {
   adminUpdateOrder,
   adminListCategories,
   adminSaveCategory,
+  adminGetSettings,
+  adminSaveSettings,
 };

@@ -5,12 +5,13 @@ const cloud = require("wx-server-sdk");
 const db = cloud.database();
 
 // 示例品类数据（来自数据字典，平台可后续在控制台增删改）
+// icon 字段对应 miniprogram/images/home/{icon}.svg 首页图标
 const SAMPLE_CATEGORIES = [
-  { name: "纸箱/废纸", unit: "kg", priceRef: "0.8元/kg", icon: "", sortOrder: 1, enabled: true },
-  { name: "塑料瓶/塑料", unit: "kg", priceRef: "0.5元/kg", icon: "", sortOrder: 2, enabled: true },
-  { name: "易拉罐/金属", unit: "kg", priceRef: "2.0元/kg", icon: "", sortOrder: 3, enabled: true },
-  { name: "旧衣物", unit: "kg", priceRef: "0.2元/kg", icon: "", sortOrder: 4, enabled: true },
-  { name: "旧家电", unit: "件", priceRef: "面议", icon: "", sortOrder: 5, enabled: true },
+  { name: "旧衣", unit: "kg", priceRef: "0.2元/kg", icon: "clothes", sortOrder: 1, enabled: true },
+  { name: "纸品", unit: "kg", priceRef: "0.8元/kg", icon: "paper", sortOrder: 2, enabled: true },
+  { name: "家电", unit: "件", priceRef: "面议", icon: "appliance", sortOrder: 3, enabled: true },
+  { name: "金属", unit: "kg", priceRef: "2.0元/kg", icon: "metal", sortOrder: 4, enabled: true },
+  { name: "塑料", unit: "kg", priceRef: "0.5元/kg", icon: "plastic", sortOrder: 5, enabled: true },
 ];
 
 // initRecycleDB — 创建集合并写入示例品类

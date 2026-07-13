@@ -1,6 +1,9 @@
 {
   "usingComponents": {
-    "cloudTipModal": "../../components/cloudTipModal/index"
+    "cloudTipModal": "../../components/cloudTipModal/index",
+    "van-icon": "@vant/weapp/icon/index"
   },
-  "navigationBarTitleText": "云回收"
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "帮帮回收"
 }

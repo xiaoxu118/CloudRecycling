@@ -9,7 +9,7 @@
 
   <!-- 地址卡片 -->
   <view class="cards" wx:else>
-    <view class="addr-card" wx:for="{{list}}" wx:key="_id" data-addr="{{item}}" bind:tap="onPickAddress">
+    <view class="addr-card" wx:for="{{list}}" wx:key="_id" data-id="{{item._id}}" bind:tap="onPickAddress">
       <view class="addr-main">
         <view class="addr-line">
           <text class="name">{{item.contactName}}</text>

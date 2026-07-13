@@ -13,17 +13,17 @@
     "pages/example/index"
   ],
   "window": {
-    "backgroundColor": "#F6F6F6",
+    "backgroundColor": "#f5f7f5",
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#07c160",
-    "navigationBarTitleText": "云回收",
+    "navigationBarBackgroundColor": "#2da460",
+    "navigationBarTitleText": "帮帮回收",
     "navigationBarTextStyle": "white"
   },
   "tabBar": {
     "color": "#999999",
-    "selectedColor": "#07c160",
+    "selectedColor": "#2da460",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/home/index",
@@ -33,7 +33,7 @@
       },
       {
         "pagePath": "pages/order-list/index",
-        "text": "我的订单",
+        "text": "订单",
         "iconPath": "images/icons/goods.png",
         "selectedIconPath": "images/icons/goods-active.png"
       },

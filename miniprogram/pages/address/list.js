@@ -30,9 +30,18 @@ Page({
 
   onPickAddress(e) {
     if (!this.data.selectMode) return;
-    const addr = e.currentTarget.dataset.addr;
+    const id = e.currentTarget.dataset.id;
+    const addr = this.data.list.find((item) => item._id === id);
+    if (!addr) {
+      wx.showToast({ title: "地址选择失败，请重试", icon: "none" });
+      return;
+    }
     getApp().globalData = getApp().globalData || {};
     getApp().globalData.pickedAddress = addr;
+    const eventChannel = this.getOpenerEventChannel();
+    if (eventChannel && eventChannel.emit) {
+      eventChannel.emit("selectAddress", addr);
+    }
     wx.navigateBack();
   },
 

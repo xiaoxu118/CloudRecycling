@@ -1,5 +1,6 @@
 (function () {
   const config = window.ADMIN_CONFIG || {};
+  const bypassAdminAuth = config.bypassAdminAuth === true;
   const state = {
     app: null,
     sessionToken: localStorage.getItem("admin_session_token") || "",
@@ -12,16 +13,24 @@
     ordersTotal: 0,
     ordersHasMore: false,
     categories: [],
+    currentView: "orders",
   };
 
   const STATUS_TEXT = {
     submitted: "已提交",
-    confirmed: "已确认",
-    assigned: "已分配",
-    recycling: "回收中",
+    processing: "处理中",
     completed: "已完成",
     canceled: "已取消",
-    rejected: "暂不可回收",
+  };
+
+  const ERROR_TEXT = {
+    FINAL_PRICE_REQUIRED: "请填写最终金额",
+    FINAL_QUANTITY_REQUIRED: "请填写实际重量或数量",
+    TRANSFER_PROOF_REQUIRED: "请上传打款截图",
+    CANCEL_REASON_REQUIRED: "请选择取消原因",
+    ORDER_STATUS_INVALID: "当前状态不可操作",
+    PARAM_INVALID: "参数有误",
+    DB_ERROR: "服务繁忙，请稍后再试",
   };
 
   const $ = (id) => document.getElementById(id);
@@ -43,6 +52,8 @@
     )}:${pad(d.getMinutes())}`;
   };
 
+  const errorText = (e) => ERROR_TEXT[e.code] || e.code || e.message;
+
   const callCloud = async (type, data = {}) => {
     if (!state.app) throw new Error("CloudBase SDK 未初始化");
     const res = await state.app.callFunction({
@@ -60,19 +71,22 @@
   };
 
   const initCloud = async () => {
-    if (!window.tcb) {
+    if (!window.cloudbase) {
       throw new Error("CloudBase JS SDK 加载失败");
     }
     if (!config.env || !config.functionName) {
       throw new Error("请先配置 admin-web/config.js");
     }
-    state.app = window.tcb.init({ env: config.env });
-    try {
-      const auth = state.app.auth({ persistence: "local" });
-      await auth.anonymousAuthProvider().signIn();
-    } catch (e) {
-      // 若云开发未开启匿名登录，仍保留提示；部分环境已有登录态时可继续尝试调用。
-      console.warn("anonymous sign-in failed:", e);
+    state.app = window.cloudbase.init({ env: config.env });
+    const auth = state.app.auth;
+    if (!auth || typeof auth.signInAnonymously !== "function") {
+      throw new Error("CloudBase JS SDK 初始化异常，请检查 SDK 版本");
+    }
+    const loginRes = await auth.signInAnonymously();
+    if (loginRes && loginRes.error) {
+      const err = new Error(loginRes.error.message || "匿名登录失败");
+      err.code = loginRes.error.code;
+      throw err;
     }
   };
 
@@ -83,7 +97,12 @@
   const showApp = () => {
     $("loginView").classList.add("hidden");
     $("appView").classList.remove("hidden");
-    $("adminName").textContent = state.adminName ? `当前管理员：${state.adminName}` : "";
+    $("adminName").textContent = bypassAdminAuth
+      ? "临时免登录模式"
+      : state.adminName
+        ? `当前管理员：${state.adminName}`
+        : "";
+    $("logoutBtn").classList.toggle("hidden", bypassAdminAuth);
     loadOrders(true);
   };
 
@@ -243,6 +262,9 @@
     const photos = (order.photoUrls || [])
       .map((url) => `<a href="${escapeHtml(url)}" target="_blank"><img src="${escapeHtml(url)}" /></a>`)
       .join("");
+    const proofs = (order.transferProofUrls || [])
+      .map((url) => `<a href="${escapeHtml(url)}" target="_blank"><img src="${escapeHtml(url)}" /></a>`)
+      .join("");
     $("modalBody").innerHTML = `
       <div class="detail-grid">
         <div class="detail-item"><span class="label">订单号</span>${escapeHtml(order.orderNo)}</div>
@@ -272,14 +294,44 @@
         <div class="detail-item"><span class="label">最终结果</span>${escapeHtml(
           order.finalPrice == null
             ? "-"
-            : `${order.finalWeight || 0} kg / ${order.finalPrice} 元`
+            : `${order.finalWeight || order.finalCount || 0} ${
+                order.finalWeight ? "kg" : "件"
+              } / ${order.finalPrice} 元`
+        )}</div>
+        <div class="detail-item"><span class="label">回收人员</span>${escapeHtml(
+          [order.recyclerName, order.recyclerPhone].filter(Boolean).join(" / ") || "-"
+        )}</div>
+        <div class="detail-item"><span class="label">取消原因</span>${escapeHtml(
+          order.cancelReason || "-"
+        )}</div>
+        <div class="detail-item full"><span class="label">管理备注</span>${escapeHtml(
+          order.adminRemark || "-"
         )}</div>
       </div>
-      ${photos ? `<div class="photos">${photos}</div>` : ""}
+      ${photos ? `<div class="asset-title">用户照片</div><div class="photos">${photos}</div>` : ""}
+      ${proofs ? `<div class="asset-title">打款截图</div><div class="photos">${proofs}</div>` : ""}
     `;
   };
 
+  const uploadTransferProofs = async (orderNo, files) => {
+    const list = Array.from(files || []);
+    const uploaded = [];
+    for (const file of list) {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const cloudPath = `transfer-proofs/${orderNo}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}.${ext}`;
+      const res = await state.app.uploadFile({ cloudPath, filePath: file });
+      uploaded.push(res.fileID);
+    }
+    return uploaded;
+  };
+
   const renderOrderUpdate = (order) => {
+    const currentProofs = Array.isArray(order.transferProofs) ? order.transferProofs : [];
+    const proofImages = (order.transferProofUrls || [])
+      .map((url) => `<a href="${escapeHtml(url)}" target="_blank"><img src="${escapeHtml(url)}" /></a>`)
+      .join("");
     $("modalBody").innerHTML = `
       <form id="orderUpdateForm" class="form-grid">
         <label>订单状态
@@ -300,9 +352,20 @@
         <label>回收员标识
           <input name="recyclerId" value="${escapeHtml(order.recyclerId || "")}" />
         </label>
+        <label>回收人员
+          <input name="recyclerName" value="${escapeHtml(order.recyclerName || "")}" />
+        </label>
+        <label>回收人员电话
+          <input name="recyclerPhone" value="${escapeHtml(order.recyclerPhone || "")}" />
+        </label>
         <label>实际重量
           <input name="finalWeight" type="number" step="0.01" value="${escapeHtml(
             order.finalWeight == null ? "" : order.finalWeight
+          )}" />
+        </label>
+        <label>实际件数
+          <input name="finalCount" type="number" step="1" value="${escapeHtml(
+            order.finalCount == null ? "" : order.finalCount
           )}" />
         </label>
         <label>最终金额
@@ -310,9 +373,18 @@
             order.finalPrice == null ? "" : order.finalPrice
           )}" />
         </label>
-        <label>拒收原因
-          <input name="rejectReason" value="${escapeHtml(order.rejectReason || "")}" />
+        <label class="full">取消原因
+          <input name="cancelReason" value="${escapeHtml(order.cancelReason || order.rejectReason || "")}" />
         </label>
+        <label class="full">打款截图
+          <input name="transferProofFiles" type="file" accept="image/*" multiple />
+          <span class="help-text">订单改为已完成时必须至少上传一张打款截图。</span>
+        </label>
+        ${
+          proofImages
+            ? `<div class="full"><div class="asset-title">已有打款截图</div><div class="photos">${proofImages}</div></div>`
+            : ""
+        }
         <label class="full">管理备注
           <textarea name="adminRemark">${escapeHtml(order.adminRemark || "")}</textarea>
         </label>
@@ -327,17 +399,21 @@
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       const payload = Object.fromEntries(form.entries());
+      delete payload.transferProofFiles;
       try {
+        const files = event.currentTarget.elements.transferProofFiles.files;
+        const newProofs = await uploadTransferProofs(order.orderNo, files);
         await callCloud("adminUpdateOrder", {
           ...authPayload(),
           id: order._id,
           ...payload,
+          transferProofs: [...currentProofs, ...newProofs],
         });
         closeModal();
         loadOrders();
       } catch (e) {
         handleAdminError(e);
-        alert(`保存失败：${e.code || e.message}`);
+        alert(`保存失败：${errorText(e)}`);
       }
     });
   };
@@ -424,21 +500,58 @@
         loadCategories();
       } catch (e) {
         handleAdminError(e);
-        alert(`保存失败：${e.code || e.message}`);
+        alert(`保存失败：${errorText(e)}`);
       }
     });
   };
 
+  const loadSettings = async () => {
+    try {
+      const data = await callCloud("adminGetSettings", authPayload());
+      $("minWeightInput").value = data.minWeightKg || 5;
+      $("minCountInput").value = data.minCount || 0;
+      $("photoCheckInput").checked = data.photoOrderCheckMinQuantity === true;
+    } catch (e) {
+      handleAdminError(e);
+      alert(`加载配置失败：${errorText(e)}`);
+    }
+  };
+
+  const saveSettings = async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const settings = {
+      minWeightKg: Number(form.get("minWeightKg")) || 5,
+      minCount: Number(form.get("minCount")) || 0,
+      photoOrderCheckMinQuantity: $("photoCheckInput").checked,
+    };
+    try {
+      await callCloud("adminSaveSettings", { ...authPayload(), settings });
+      alert("配置已保存");
+      loadSettings();
+    } catch (e) {
+      handleAdminError(e);
+      alert(`保存配置失败：${errorText(e)}`);
+    }
+  };
+
   const switchView = (view) => {
+    state.currentView = view;
     document.querySelectorAll(".nav-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.view === view);
     });
     $("ordersView").classList.toggle("hidden", view !== "orders");
     $("categoriesView").classList.toggle("hidden", view !== "categories");
-    $("pageTitle").textContent = view === "orders" ? "订单管理" : "品类管理";
-    $("pageDesc").textContent =
-      view === "orders" ? "查看真实订单数据并推进订单状态" : "维护小程序展示的回收品类";
+    $("settingsView").classList.toggle("hidden", view !== "settings");
+    const titles = {
+      orders: ["订单管理", "查看真实订单数据并推进订单状态"],
+      categories: ["品类管理", "维护小程序展示的回收品类"],
+      settings: ["系统配置", "配置小程序下单规则"],
+    };
+    $("pageTitle").textContent = titles[view][0];
+    $("pageDesc").textContent = titles[view][1];
     if (view === "categories") loadCategories();
+    if (view === "settings") loadSettings();
   };
 
   const openModal = (title, body) => {
@@ -478,6 +591,8 @@
     });
     $("reloadCategoriesBtn").addEventListener("click", loadCategories);
     $("newCategoryBtn").addEventListener("click", () => editCategory());
+    $("reloadSettingsBtn").addEventListener("click", loadSettings);
+    $("settingsForm").addEventListener("submit", saveSettings);
     $("modalCloseBtn").addEventListener("click", closeModal);
     document.querySelector(".modal-mask").addEventListener("click", closeModal);
 
@@ -504,7 +619,10 @@
     bindEvents();
     try {
       await initCloud();
-      if (state.sessionToken) {
+      if (bypassAdminAuth) {
+        state.adminName = "临时开发管理员";
+        showApp();
+      } else if (state.sessionToken) {
         showApp();
       } else {
         showLogin();

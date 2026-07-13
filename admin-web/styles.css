@@ -282,6 +282,11 @@ tr:last-child td {
   color: #027a48;
 }
 
+.status.processing {
+  background: #eff8ff;
+  color: #175cd3;
+}
+
 .status.canceled,
 .status.rejected {
   background: #fef3f2;
@@ -398,6 +403,42 @@ tr:last-child td {
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid var(--line);
+}
+
+.asset-title {
+  margin: 18px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.help-text {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-form {
+  max-width: 520px;
+  display: grid;
+  gap: 16px;
+}
+
+.settings-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkbox-row {
+  display: flex !important;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-row input {
+  width: auto;
 }
 
 .form-grid {

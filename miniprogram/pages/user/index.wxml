@@ -1,61 +1,81 @@
-<!--个人中心-->
 <view class="user">
-  <!-- 已登录：展示资料 -->
-  <view class="profile">
-    <view wx:if="{{loggedIn}}" class="profile-info">
-      <image class="avatar" src="{{avatarUrl || '/images/icons/avatar.png'}}" />
-      <view class="profile-text">
-        <view class="nickname">{{nickName || "微信用户"}}</view>
-        <view class="logout-btn" bind:tap="onLogout">退出登录</view>
-      </view>
-    </view>
-
-    <!-- 未登录：一键登录（头像 + 昵称） -->
-    <view wx:else class="login-area">
-      <view class="login-form">
-        <!-- 头像选择 -->
-        <button class="avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
-          <image class="avatar" src="{{draftAvatar || '/images/icons/avatar.png'}}" />
-          <text class="avatar-tip">点击选择头像</text>
-        </button>
-
-        <!-- 昵称填写 -->
-        <view class="nickname-row">
-          <text class="nickname-label">昵称</text>
-          <input
-            class="nickname-input"
-            type="nickname"
-            placeholder="点击填写昵称"
-            value="{{draftNick}}"
-            bind:blur="onNickInput"
-            bind:input="onNickInput"
-          />
+  <!-- 已登录 -->
+  <block wx:if="{{loggedIn}}">
+    <view class="header">
+      <button class="avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChangeAvatar">
+        <image class="avatar" src="{{avatarUrl || '/images/icons/avatar.png'}}" />
+      </button>
+      <view class="header-text">
+        <input
+          class="nickname-input"
+          type="nickname"
+          placeholder="设置昵称"
+          value="{{nickName}}"
+          bind:blur="onChangeNickInput"
+        />
+        <view class="header-sub">
+          <text wx:if="{{phone}}">{{phone}}</text>
+          <text wx:else class="muted">未绑定手机号</text>
         </view>
-
-        <button class="login-btn" loading="{{loading}}" bind:tap="onLogin">
-          微信一键登录
-        </button>
-        <view class="login-desc">登录后可使用全部功能</view>
       </view>
     </view>
-  </view>
 
-  <!-- 功能入口 -->
-  <view class="menu">
-    <view class="menu-item" bind:tap="goOrders">
-      <text class="menu-icon">📋</text>
-      <text class="menu-label">我的订单</text>
-      <text class="arrow">›</text>
+    <view class="section-label">账户</view>
+    <view class="card group">
+      <view class="row" bind:tap="goOrders">
+        <text class="row-label">我的订单</text>
+        <text class="row-value">{{orderCount || 0}}</text>
+        <text class="chevron">›</text>
+      </view>
+      <view class="row" bind:tap="goAddress">
+        <text class="row-label">收货地址</text>
+        <text class="row-value">{{addressCount || 0}}</text>
+        <text class="chevron">›</text>
+      </view>
+      <button
+        wx:if="{{!phone}}"
+        class="row row-btn"
+        open-type="getPhoneNumber"
+        bind:getphonenumber="onGetPhoneNumber"
+      >
+        <text class="row-label">绑定手机号</text>
+        <text class="chevron">›</text>
+      </button>
     </view>
-    <view class="menu-item" bind:tap="goAddress">
-      <text class="menu-icon">📍</text>
-      <text class="menu-label">我的地址</text>
-      <text class="arrow">›</text>
+
+    <view class="section-label">其他</view>
+    <view class="card group">
+      <view class="row" bind:tap="onAbout">
+        <text class="row-label">关于云回收</text>
+        <text class="chevron">›</text>
+      </view>
+      <view wx:if="{{openid}}" class="row" bind:tap="onCopyOpenid">
+        <text class="row-label">用户 ID</text>
+        <text class="row-value mono openid-value">{{openid}}</text>
+      </view>
     </view>
-    <view class="menu-item" bind:tap="onAbout">
-      <text class="menu-icon">ℹ️</text>
-      <text class="menu-label">关于 / 客服</text>
-      <text class="arrow">›</text>
+
+    <view class="footer">
+      <button class="btn-ghost logout" bind:tap="onLogout">退出登录</button>
     </view>
-  </view>
+  </block>
+
+  <!-- 未登录 -->
+  <block wx:else>
+    <view class="login">
+      <view class="login-title">云回收</view>
+      <view class="login-sub">让回收更简单</view>
+      <button
+        class="btn-primary login-btn {{loading ? 'is-loading' : ''}}"
+        loading="{{loading}}"
+        open-type="getPhoneNumber"
+        bind:getphonenumber="onOneClickLogin"
+      >
+        微信一键登录
+      </button>
+      <view class="login-legal">
+        登录即表示同意使用微信手机号完成账号登录
+      </view>
+    </view>
+  </block>
 </view>

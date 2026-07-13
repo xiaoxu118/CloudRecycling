@@ -248,10 +248,10 @@
       <view class="divider"></view>
 
       <view class="feature-section">
-        <view class="feature-title">✨ 场景示例</view>
+        <view class="feature-title">场景示例</view>
         <view class="feature-list">
           <view class="feature-item-with-examples">
-            <view class="feature-main">💡 智能代码生成与补全</view>
+            <view class="feature-main">智能代码生成与补全</view>
             <view class="feature-examples">
               <view class="feature-example-wrapper">
                 <text class="feature-example-text">· 帮我创建一个商品列表页面,包含图片、标题、价格和加入购物车按钮</text>
@@ -269,7 +269,7 @@
           </view>
           
           <view class="feature-item-with-examples">
-            <view class="feature-main">🔧 代码优化与重构建议</view>
+            <view class="feature-main">代码优化与重构建议</view>
             <view class="feature-examples">
               <view class="feature-example-wrapper">
                 <text class="feature-example-text">· 优化这个页面的间隔，提升信息密度</text>

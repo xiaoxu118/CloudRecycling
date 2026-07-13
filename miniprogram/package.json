@@ -1,0 +1,9 @@
+{
+  "name": "cloud-recycling-miniprogram",
+  "version": "1.0.0",
+  "description": "CloudRecycling miniprogram (WeChat)",
+  "private": true,
+  "dependencies": {
+    "@vant/weapp": "^1.11.7"
+  }
+}

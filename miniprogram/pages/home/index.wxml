@@ -1,44 +1,105 @@
 <!--首页-->
 <view class="home">
-  <!-- 顶部 banner -->
+  <!-- 1. 自定义顶部栏 -->
+  <view class="top-bar" style="padding-top: {{statusBarHeight}}px;">
+    <view class="top-bar-inner" style="height: {{navBarHeight}}px;">
+      <view class="location" bind:tap="onTapLocation">
+        <image class="loc-icon" src="/images/home/location.svg" mode="aspectFit" />
+        <text class="loc-text">{{locationText}}</text>
+        <image class="loc-arrow" src="/images/home/chevron-down.svg" mode="aspectFit" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 2. Banner 区域 -->
   <view class="banner">
-    <!-- 当前定位（左上角） -->
-    <view class="location" bind:tap="onTapLocation">
-      <text class="location-icon">📍</text>
-      <text class="location-text">{{locationText}}</text>
+    <image wx:if="{{bannerImageUrl}}" class="banner-bg" src="{{bannerImageUrl}}" mode="aspectFill" />
+    <view class="banner-bg-fallback" wx:else></view>
+    <view class="banner-overlay"></view>
+    <view class="banner-content">
+      <view class="banner-logo">
+        <image class="banner-logo-icon" src="/images/home/recycle.svg" mode="aspectFit" />
+        <text class="banner-title">帮帮回收</text>
+      </view>
+      <view class="banner-slogan">废品一收，轻松无忧</view>
+      <view class="banner-sub-slogan">社区上门 · 当场结算</view>
     </view>
-    <view class="banner-title">让回收更简单</view>
-    <view class="banner-sub">上门回收 · 环保到家</view>
+    <view class="banner-cta" bind:tap="onBannerBookTap">免费上门</view>
   </view>
 
-  <!-- 两个主入口 -->
-  <view class="entry-row">
-    <view class="entry-card entry-primary" bind:tap="goCategory">
-      <view class="entry-icon">♻️</view>
-      <view class="entry-name">按品类预约</view>
-      <view class="entry-desc">已知回收物，直接下单</view>
+  <!-- 3. 品类选择 -->
+  <view class="section category-section">
+    <view class="section-header">
+      <text class="section-title-text">选择回收品类</text>
+      <text class="section-hint">可多选</text>
     </view>
-    <view class="entry-card entry-photo" bind:tap="goPhoto">
-      <view class="entry-icon">📷</view>
-      <view class="entry-name">拍照提交</view>
-      <view class="entry-desc">不确定？拍照让平台判断</view>
+    <view class="cat-grid">
+      <view
+        wx:for="{{categories}}"
+        wx:key="_id"
+        class="cat-item {{item.selected ? 'selected' : ''}}"
+        data-index="{{index}}"
+        bind:tap="onToggleCategory"
+      >
+        <view class="cat-icon-wrap">
+          <van-icon name="{{item.vanIcon}}" size="44rpx" color="{{item.selected ? '#0f9f6e' : '#1f1f23'}}" />
+        </view>
+        <text class="cat-name">{{item.name}}</text>
+        <text wx:if="{{item.priceRef}}" class="cat-price">{{item.priceRef}}</text>
+        <van-icon
+          wx:if="{{item.selected}}"
+          class="cat-check"
+          name="success"
+          size="24rpx"
+          color="#fff"
+        />
+      </view>
+    </view>
+    <button class="book-btn" bind:tap="onBookTap">
+      <image class="book-btn-icon" src="/images/home/truck-btn.svg" mode="aspectFit" />
+      <text>{{hasSelection ? '预约上门回收' : '开始预约回收'}}</text>
+    </button>
+  </view>
+
+  <!-- 4. 服务承诺 -->
+  <view class="section service-section">
+    <view class="section-title-text service-title">服务承诺</view>
+    <view class="service-grid">
+      <view class="service-item">
+        <view class="svc-icon-wrap"><image class="svc-icon" src="/images/home/truck.svg" mode="aspectFit" /></view>
+        <text class="svc-name">免费上门</text>
+        <text class="svc-desc">无搬运费</text>
+      </view>
+      <view class="service-item">
+        <view class="svc-icon-wrap"><image class="svc-icon" src="/images/home/clock.svg" mode="aspectFit" /></view>
+        <text class="svc-name">2小时响应</text>
+        <text class="svc-desc">准时上门</text>
+      </view>
+      <view class="service-item">
+        <view class="svc-icon-wrap"><image class="svc-icon" src="/images/home/wallet.svg" mode="aspectFit" /></view>
+        <text class="svc-name">当场结算</text>
+        <text class="svc-desc">透明报价</text>
+      </view>
+      <view class="service-item">
+        <view class="svc-icon-wrap"><image class="svc-icon" src="/images/home/shield.svg" mode="aspectFit" /></view>
+        <text class="svc-name">实名认证</text>
+        <text class="svc-desc">放心安全</text>
+      </view>
     </view>
   </view>
 
-  <!-- 我的订单快捷入口 -->
-  <view class="quick-order" bind:tap="goOrderList">
-    <text>我的订单</text>
-    <text class="quick-arrow">›</text>
+  <!-- 5. 客服热线 -->
+  <view class="service-hotline" bind:tap="onCallService">
+    <view class="hotline-icon-wrap">
+      <image class="hotline-icon" src="/images/home/phone.svg" mode="aspectFit" />
+    </view>
+    <text class="hotline-label">客服热线</text>
+    <text class="hotline-time">工作日 8:00-20:00</text>
+    <text class="hotline-number">{{servicePhone}}</text>
+    <image class="hotline-arrow" src="/images/home/chevron-right.svg" mode="aspectFit" />
   </view>
 
-  <!-- 热门品类（可选展示） -->
-  <view class="section-title" wx:if="{{categories.length}}">可回收品类</view>
-  <view class="cat-list" wx:if="{{categories.length}}">
-    <view class="cat-item" wx:for="{{categories}}" wx:key="_id" bind:tap="goCategory">
-      <view class="cat-name">{{item.name}}</view>
-      <view class="cat-price">{{item.priceRef}}</view>
-    </view>
-  </view>
+  <view class="bottom-space"></view>
 </view>
 
 <cloudTipModal showTipProps="{{showTip}}" title="{{tipTitle}}" content="{{tipContent}}" bind:close="onCloseTip" />

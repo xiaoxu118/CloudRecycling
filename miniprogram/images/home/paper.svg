@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 64 64" fill="none">
+  <!-- 文档主体 -->
+  <path d="M16 8 H40 L50 20 V54 C50 55.1 49.1 56 48 56 H16 C14.9 56 14 55.1 14 54 V10 C14 8.9 14.9 8 16 8 Z" stroke="#889990" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+  <!-- 右上角折角 -->
+  <path d="M40 8 V20 H50" stroke="#889990" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+  <!-- 折角对角线 -->
+  <line x1="40" y1="20" x2="50" y2="20" stroke="#889990" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- 两条短横线（靠左的文字行） -->
+  <line x1="22" y1="30" x2="40" y2="30" stroke="#889990" stroke-width="2.4" stroke-linecap="round"/>
+  <line x1="22" y1="40" x2="36" y2="40" stroke="#889990" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

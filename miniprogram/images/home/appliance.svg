@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 64 64" fill="none">
+  <!-- 电视机/显示器 扁宽圆角矩形 -->
+  <rect x="8" y="22" width="48" height="30" rx="3" stroke="#889990" stroke-width="2.4" stroke-linejoin="round" fill="none"/>
+  <!-- 倒V天线：从屏幕上沿中点分开 -->
+  <line x1="25" y1="22" x2="32" y2="10" stroke="#889990" stroke-width="2.4" stroke-linecap="round"/>
+  <line x1="39" y1="22" x2="32" y2="10" stroke="#889990" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

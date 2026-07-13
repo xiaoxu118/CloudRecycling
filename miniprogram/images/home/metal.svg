@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 64 64" fill="none">
+  <!-- 经典开口扳手（开口朝右上，手柄斜向左下） -->
+  <path d="M42.5 17 C46.5 13 52 13 55.5 17 C59 21 59 27 55 31 L30 56 C28 58 25 58 23 56 C21 54 21 51 23 49 L48 24" stroke="#889990" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- 开口的U型凹口 -->
+  <path d="M52 14 L56 18" stroke="#889990" stroke-width="2.8" stroke-linecap="round"/>
+</svg>
