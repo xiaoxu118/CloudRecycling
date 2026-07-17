@@ -5,7 +5,7 @@ const cloud = require("wx-server-sdk");
 const db = cloud.database();
 
 // 示例品类数据（来自数据字典，平台可后续在控制台增删改）
-// icon 字段对应 miniprogram/images/home/{icon}.svg 首页图标
+// icon 为旧版内置图标 key；iconFileId 为管理端上传的自定义图标。
 const SAMPLE_CATEGORIES = [
   { name: "旧衣", unit: "kg", priceRef: "0.2元/kg", icon: "clothes", sortOrder: 1, enabled: true },
   { name: "纸品", unit: "kg", priceRef: "0.8元/kg", icon: "paper", sortOrder: 2, enabled: true },
@@ -49,7 +49,25 @@ const listCategories = async () => {
       .where({ enabled: true })
       .orderBy("sortOrder", "asc")
       .get();
-    return { success: true, data: res.data };
+    const fileIds = [...new Set(res.data.map((item) => item.iconFileId).filter(Boolean))];
+    const urlMap = {};
+    if (fileIds.length) {
+      try {
+        const tempRes = await cloud.getTempFileURL({ fileList: fileIds });
+        (tempRes.fileList || []).forEach((item) => {
+          urlMap[item.fileID] = item.tempFileURL || "";
+        });
+      } catch (e) {
+        // 单个历史文件失效时仍返回品类，前端继续使用内置图标兜底。
+      }
+    }
+    return {
+      success: true,
+      data: res.data.map((item) => ({
+        ...item,
+        iconImageUrl: item.iconFileId ? urlMap[item.iconFileId] || "" : "",
+      })),
+    };
   } catch (e) {
     return { success: false, errMsg: "DB_ERROR" };
   }

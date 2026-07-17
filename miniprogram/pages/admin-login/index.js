@@ -1,4 +1,5 @@
 const { callCloud } = require("../../utils/cloud");
+const { backOrSwitchTab } = require("../../utils/navigation");
 
 Page({
   data: {
@@ -65,7 +66,7 @@ Page({
   },
 
   onCancel() {
-    wx.navigateBack();
+    backOrSwitchTab("/pages/home/index");
   },
 
   onCopyOpenid() {

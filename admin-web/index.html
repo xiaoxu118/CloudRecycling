@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>云回收管理后台</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/choices.js@11.1.0/public/assets/styles/choices.min.css"
+    />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -49,14 +53,14 @@
 
         <section id="ordersView" class="content-view">
           <div class="toolbar">
-            <select id="statusFilter">
+            <select id="statusFilter" class="enhanced-select" aria-label="订单状态筛选">
               <option value="">全部状态</option>
               <option value="submitted">已提交</option>
               <option value="processing">处理中</option>
               <option value="completed">已完成</option>
               <option value="canceled">已取消</option>
             </select>
-            <input id="keywordInput" placeholder="搜索订单号" />
+            <input id="keywordInput" placeholder="搜索订单号、摘要、备注、联系人或手机号" />
             <button id="searchOrdersBtn" class="secondary-btn">查询</button>
             <button id="reloadOrdersBtn" class="secondary-btn">刷新</button>
           </div>
@@ -69,6 +73,18 @@
                   <th>摘要</th>
                   <th>联系人</th>
                   <th>预约时间</th>
+                  <th>
+                    <button class="sort-header active" type="button" data-sort-field="createTime">
+                      创建时间
+                      <span class="sort-arrows" aria-hidden="true"><i class="up"></i><i class="down active"></i></span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-header" type="button" data-sort-field="updateTime">
+                      修改时间
+                      <span class="sort-arrows" aria-hidden="true"><i class="up"></i><i class="down"></i></span>
+                    </button>
+                  </th>
                   <th>金额</th>
                   <th>操作</th>
                 </tr>
@@ -92,6 +108,7 @@
             <table>
               <thead>
                 <tr>
+                  <th>图标</th>
                   <th>名称</th>
                   <th>单位</th>
                   <th>参考价</th>
@@ -106,24 +123,16 @@
         </section>
 
         <section id="settingsView" class="content-view hidden">
-          <form id="settingsForm" class="settings-form">
-            <label>
-              最低起收重量 kg
-              <input id="minWeightInput" name="minWeightKg" type="number" min="0" step="0.1" />
-            </label>
-            <label>
-              最低起收件数
-              <input id="minCountInput" name="minCount" type="number" min="0" step="1" />
-            </label>
-            <label class="checkbox-row">
-              <input id="photoCheckInput" name="photoOrderCheckMinQuantity" type="checkbox" />
-              拍照提交也校验最低起收
-            </label>
-            <div class="modal-actions">
-              <button id="reloadSettingsBtn" type="button" class="secondary-btn">刷新</button>
-              <button type="submit" class="primary-btn">保存配置</button>
-            </div>
-          </form>
+          <div class="toolbar">
+            <button id="newSettingBtn" type="button" class="primary-btn">新增配置</button>
+            <button id="reloadSettingsBtn" type="button" class="secondary-btn">刷新</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>名称</th><th>Key</th><th>类型</th><th>Value</th><th>说明</th><th>操作</th></tr></thead>
+              <tbody id="settingsBody"></tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>
@@ -141,6 +150,7 @@
 
     <script src="./config.js"></script>
     <script src="https://static.cloudbase.net/cloudbase-js-sdk/2.28.6/cloudbase.full.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/choices.js@11.1.0/public/assets/scripts/choices.min.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

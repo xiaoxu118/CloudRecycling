@@ -14,10 +14,10 @@
   ],
   "window": {
     "backgroundColor": "#f5f7f5",
-    "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#2da460",
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTitleText": "帮帮回收",
-    "navigationBarTextStyle": "white"
+    "navigationBarTextStyle": "black"
   },
   "tabBar": {
     "color": "#999999",

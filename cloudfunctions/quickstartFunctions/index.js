@@ -232,9 +232,10 @@ exports.main = async (event, context) => {
     case "getHomeBanner":
       return await recycleOrders.getHomeBanner();
     case "getHomeData": {
-      const [categoriesRes, bannerRes] = await Promise.all([
+      const [categoriesRes, bannerRes, publicSettingsRes] = await Promise.all([
         recycleCategories.listCategories(),
         recycleOrders.getHomeBanner(),
+        recycleOrders.getPublicSettings(),
       ]);
       if (!categoriesRes.success) return categoriesRes;
       return {
@@ -242,6 +243,7 @@ exports.main = async (event, context) => {
         data: {
           categories: categoriesRes.data || [],
           banner: (bannerRes && bannerRes.data) || {},
+          settings: (publicSettingsRes && publicSettingsRes.data) || {},
         },
       };
     }
@@ -290,5 +292,11 @@ exports.main = async (event, context) => {
       return await recycleAdmin.adminGetSettings(event);
     case "adminSaveSettings":
       return await recycleAdmin.adminSaveSettings(event);
+    case "adminListSystemSettings":
+      return await recycleAdmin.adminListSystemSettings(event);
+    case "adminSaveSystemSetting":
+      return await recycleAdmin.adminSaveSystemSetting(event);
+    case "adminDeleteSystemSetting":
+      return await recycleAdmin.adminDeleteSystemSetting(event);
   }
 };

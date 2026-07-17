@@ -1,81 +1,77 @@
-<view class="user">
+<view class="user-page">
   <!-- 已登录 -->
   <block wx:if="{{loggedIn}}">
-    <view class="header">
-      <button class="avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChangeAvatar">
-        <image class="avatar" src="{{avatarUrl || '/images/icons/avatar.png'}}" />
+    <view class="profile-card">
+      <button class="avatar-button" open-type="chooseAvatar" bind:chooseavatar="onChangeAvatar">
+        <image class="avatar" src="{{avatarUrl || '/images/icons/avatar.png'}}" mode="aspectFill" />
+        <view class="avatar-edit"><van-icon name="photograph" size="22rpx" color="#fff" /></view>
       </button>
-      <view class="header-text">
+      <view class="profile-main">
         <input
           class="nickname-input"
           type="nickname"
-          placeholder="设置昵称"
+          placeholder="点击设置昵称"
           value="{{nickName}}"
           bind:blur="onChangeNickInput"
         />
-        <view class="header-sub">
-          <text wx:if="{{phone}}">{{phone}}</text>
-          <text wx:else class="muted">未绑定手机号</text>
+        <view class="profile-sub">
+          <text>{{phone || '微信用户'}}</text>
         </view>
       </view>
+      <van-icon name="edit" size="34rpx" color="rgba(255,255,255,.78)" />
     </view>
 
-    <view class="section-label">账户</view>
-    <view class="card group">
-      <view class="row" bind:tap="goOrders">
-        <text class="row-label">我的订单</text>
-        <text class="row-value">{{orderCount || 0}}</text>
-        <text class="chevron">›</text>
+    <view class="stats-card">
+      <view class="stat-item" bind:tap="goOrders">
+        <text class="stat-value">{{orderCount || 0}}</text>
+        <text class="stat-label">我的订单</text>
       </view>
-      <view class="row" bind:tap="goAddress">
-        <text class="row-label">收货地址</text>
-        <text class="row-value">{{addressCount || 0}}</text>
-        <text class="chevron">›</text>
-      </view>
-      <button
-        wx:if="{{!phone}}"
-        class="row row-btn"
-        open-type="getPhoneNumber"
-        bind:getphonenumber="onGetPhoneNumber"
-      >
-        <text class="row-label">绑定手机号</text>
-        <text class="chevron">›</text>
-      </button>
-    </view>
-
-    <view class="section-label">其他</view>
-    <view class="card group">
-      <view class="row" bind:tap="onAbout">
-        <text class="row-label">关于云回收</text>
-        <text class="chevron">›</text>
-      </view>
-      <view wx:if="{{openid}}" class="row" bind:tap="onCopyOpenid">
-        <text class="row-label">用户 ID</text>
-        <text class="row-value mono openid-value">{{openid}}</text>
+      <view class="stat-divider"></view>
+      <view class="stat-item" bind:tap="goAddress">
+        <text class="stat-value">{{addressCount || 0}}</text>
+        <text class="stat-label">常用地址</text>
       </view>
     </view>
 
-    <view class="footer">
-      <button class="btn-ghost logout" bind:tap="onLogout">退出登录</button>
+    <view class="section-title">常用服务</view>
+    <van-cell-group inset custom-class="menu-group">
+      <van-cell title="我的订单" value="{{orderCount || 0}} 笔" icon="orders-o" is-link bind:click="goOrders" />
+      <van-cell title="地址管理" value="{{addressCount || 0}} 个" icon="location-o" is-link bind:click="goAddress" />
+    </van-cell-group>
+
+    <view class="section-title">更多</view>
+    <van-cell-group inset custom-class="menu-group">
+      <van-cell title="关于云回收" icon="info-o" is-link bind:click="onAbout" />
+      <van-cell wx:if="{{openid}}" title="用户 ID" value="点击复制" icon="idcard" is-link bind:click="onCopyOpenid" />
+    </van-cell-group>
+
+    <view class="logout-wrap">
+      <van-button type="danger" plain round block custom-class="logout-button" bind:click="onLogout">
+        退出登录
+      </van-button>
     </view>
   </block>
 
   <!-- 未登录 -->
   <block wx:else>
-    <view class="login">
-      <view class="login-title">云回收</view>
-      <view class="login-sub">让回收更简单</view>
-      <button
-        class="btn-primary login-btn {{loading ? 'is-loading' : ''}}"
+    <view class="login-card">
+      <view class="login-logo">
+        <image src="/images/home/recycle.svg" mode="aspectFit" />
+      </view>
+      <view class="login-title">欢迎使用帮帮回收</view>
+      <view class="login-sub">登录后管理预约订单和上门地址</view>
+      <van-button
+        type="primary"
+        round
+        block
         loading="{{loading}}"
-        open-type="getPhoneNumber"
-        bind:getphonenumber="onOneClickLogin"
+        loading-text="登录中..."
+        custom-class="login-button"
+        bind:click="onWechatLogin"
       >
         微信一键登录
-      </button>
-      <view class="login-legal">
-        登录即表示同意使用微信手机号完成账号登录
-      </view>
+      </van-button>
+      <view class="login-legal">登录仅用于识别当前微信用户和隔离个人订单数据</view>
     </view>
   </block>
 </view>

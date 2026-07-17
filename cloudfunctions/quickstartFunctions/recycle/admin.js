@@ -243,45 +243,105 @@ const adminListOrders = async (event) => {
 
   const status = event.status || "";
   const keyword = (event.keyword || "").trim();
+  const sortField = event.sortField === "updateTime" ? "updateTime" : "createTime";
+  const sortOrder = event.sortOrder === "asc" ? "asc" : "desc";
   let page = parseInt(event.page, 10) || 1;
   let pageSize = parseInt(event.pageSize, 10) || 20;
   if (page < 1) page = 1;
   if (pageSize < 1) pageSize = 20;
   if (pageSize > PAGE_SIZE_MAX) pageSize = PAGE_SIZE_MAX;
 
-  const where = {};
+  const conditions = [];
   if (status === "processing") {
-    where.status = _.in(["processing", "confirmed", "assigned", "recycling"]);
+    conditions.push({ status: _.in(["processing", "confirmed", "assigned", "recycling"]) });
   } else if (status === "canceled") {
-    where.status = _.in(["canceled", "rejected"]);
+    conditions.push({ status: _.in(["canceled", "rejected"]) });
   } else if (status) {
-    where.status = status;
+    conditions.push({ status });
   }
-  if (keyword) {
-    where.orderNo = db.RegExp({ regexp: keyword, options: "i" });
-  }
+  const statusWhere = conditions[0] || {};
+  const where = statusWhere;
 
   try {
     const coll = db.collection("orders");
+    const listFields = {
+      orderNo: true,
+      source: true,
+      status: true,
+      summary: true,
+      remark: true,
+      adminRemark: true,
+      addressSnapshot: true,
+      appointDate: true,
+      appointSlot: true,
+      estimatePrice: true,
+      finalWeight: true,
+      finalPrice: true,
+      createTime: true,
+      updateTime: true,
+    };
+
+    // CloudBase 对嵌套字段 + RegExp + OR 的组合查询在部分环境中匹配不稳定。
+    // 管理端有关键词时先按状态读取订单，再在云函数内对统一文本做包含匹配，
+    // 保证 addressSnapshot.contactName / phone 等嵌套字段可以正常搜索。
+    if (keyword) {
+      const countRes = await coll.where(statusWhere).count();
+      const all = [];
+      const batchSize = 100;
+      for (let skip = 0; skip < countRes.total; skip += batchSize) {
+        const batch = await coll
+          .where(statusWhere)
+          .orderBy(sortField, sortOrder)
+          .skip(skip)
+          .limit(batchSize)
+          .field(listFields)
+          .get();
+        all.push(...batch.data);
+      }
+      const normalizeSearchText = (value) =>
+        String(value || "")
+          .normalize("NFKC")
+          .replace(/[\s\-—_()（）]/g, "")
+          .toLowerCase();
+      const needle = normalizeSearchText(keyword);
+      const matched = all.filter((item) => {
+        const address = item.addressSnapshot || {};
+        return [
+          item.orderNo,
+          item.summary,
+          item.remark,
+          item.adminRemark,
+          address.contactName,
+          address.phone,
+          item.contactName,
+          item.phone,
+        ].some((value) => normalizeSearchText(value).includes(needle));
+      });
+      const start = (page - 1) * pageSize;
+      return {
+        success: true,
+        data: {
+          list: matched.slice(start, start + pageSize).map((item) => ({
+            ...item,
+            status: normalizeStatus(item.status),
+          })),
+          total: matched.length,
+          hasMore: start + pageSize < matched.length,
+          searchMeta: {
+            version: "contact-search-v3",
+            scanned: all.length,
+            matched: matched.length,
+          },
+        },
+      };
+    }
+
     const listPromise = coll
       .where(where)
-      .orderBy("createTime", "desc")
+      .orderBy(sortField, sortOrder)
       .skip((page - 1) * pageSize)
       .limit(pageSize)
-      .field({
-        orderNo: true,
-        source: true,
-        status: true,
-        summary: true,
-        addressSnapshot: true,
-        appointDate: true,
-        appointSlot: true,
-        estimatePrice: true,
-        finalWeight: true,
-        finalPrice: true,
-        createTime: true,
-        updateTime: true,
-      })
+      .field(listFields)
       .get();
     const [countRes, listRes] = await Promise.all([
       coll.where(where).count(),
@@ -340,21 +400,9 @@ const adminUpdateOrder = async (event) => {
     return { success: false, errMsg: "PARAM_INVALID" };
   }
 
-  const finalPrice = Number(event.finalPrice);
-  const finalWeight = Number(event.finalWeight);
-  const finalCount = Number(event.finalCount);
   const transferProofs = Array.isArray(event.transferProofs) ? event.transferProofs : [];
   const cancelReason = (event.cancelReason || event.rejectReason || "").trim();
 
-  if (status === "completed") {
-    if (!(finalPrice > 0)) return { success: false, errMsg: "FINAL_PRICE_REQUIRED" };
-    if (!(finalWeight > 0) && !(finalCount > 0)) {
-      return { success: false, errMsg: "FINAL_QUANTITY_REQUIRED" };
-    }
-    if (transferProofs.length === 0) {
-      return { success: false, errMsg: "TRANSFER_PROOF_REQUIRED" };
-    }
-  }
   if (status === "canceled" && !cancelReason) {
     return { success: false, errMsg: "CANCEL_REASON_REQUIRED" };
   }
@@ -389,7 +437,25 @@ const adminListCategories = async (event) => {
   if (!auth.ok) return { success: false, errMsg: auth.errMsg };
   try {
     const res = await db.collection("categories").orderBy("sortOrder", "asc").get();
-    return { success: true, data: res.data };
+    const fileIds = [...new Set(res.data.map((item) => item.iconFileId).filter(Boolean))];
+    const urlMap = {};
+    if (fileIds.length) {
+      try {
+        const tempRes = await cloud.getTempFileURL({ fileList: fileIds });
+        (tempRes.fileList || []).forEach((item) => {
+          urlMap[item.fileID] = item.tempFileURL || "";
+        });
+      } catch (e) {
+        // 保留品类数据，失效图标由管理端显示为未配置。
+      }
+    }
+    return {
+      success: true,
+      data: res.data.map((item) => ({
+        ...item,
+        iconImageUrl: item.iconFileId ? urlMap[item.iconFileId] || "" : "",
+      })),
+    };
   } catch (e) {
     return { success: false, errMsg: "DB_ERROR" };
   }
@@ -406,6 +472,7 @@ const adminSaveCategory = async (event) => {
     unit: c.unit,
     priceRef: c.priceRef || "",
     icon: c.icon || "",
+    iconFileId: c.iconFileId || "",
     sortOrder: Number(c.sortOrder) || 0,
     enabled: c.enabled !== false,
   };
@@ -426,12 +493,22 @@ const adminGetSettings = async (event) => {
   const auth = await assertAdminSession(event.sessionToken);
   if (!auth.ok) return { success: false, errMsg: auth.errMsg };
   try {
-    const res = await db
-      .collection("settings")
-      .where({ key: "recycle_rules" })
-      .limit(1)
-      .get();
-    const data = res.data[0] || {};
+    const [rulesRes, bannerRes] = await Promise.all([
+      db.collection("settings").where({ key: "recycle_rules" }).limit(1).get(),
+      db.collection("settings").where({ key: "home_banner" }).limit(1).get(),
+    ]);
+    const data = rulesRes.data[0] || {};
+    const banner = bannerRes.data[0] || {};
+    let bannerImageUrl = "";
+    if (banner.imageFileId) {
+      try {
+        const tempRes = await cloud.getTempFileURL({ fileList: [banner.imageFileId] });
+        bannerImageUrl =
+          (tempRes.fileList && tempRes.fileList[0] && tempRes.fileList[0].tempFileURL) || "";
+      } catch (e) {
+        bannerImageUrl = "";
+      }
+    }
     return {
       success: true,
       data: {
@@ -439,6 +516,8 @@ const adminGetSettings = async (event) => {
         minWeightKg: Number(data.minWeightKg) || DEFAULT_RECYCLE_SETTINGS.minWeightKg,
         minCount: Number(data.minCount) || DEFAULT_RECYCLE_SETTINGS.minCount,
         photoOrderCheckMinQuantity: data.photoOrderCheckMinQuantity === true,
+        bannerImageFileId: banner.imageFileId || "",
+        bannerImageUrl,
       },
     };
   } catch (e) {
@@ -469,7 +548,122 @@ const adminSaveSettings = async (event) => {
     } else {
       await db.collection("settings").add({ data: { ...data, createTime: now } });
     }
+    if (settings.bannerImageFileId !== undefined) {
+      const bannerData = {
+        key: "home_banner",
+        imageFileId: settings.bannerImageFileId || "",
+        updateTime: now,
+      };
+      const bannerRes = await db
+        .collection("settings")
+        .where({ key: "home_banner" })
+        .limit(1)
+        .get();
+      if (bannerRes.data[0]) {
+        await db.collection("settings").doc(bannerRes.data[0]._id).update({ data: bannerData });
+      } else {
+        await db.collection("settings").add({ data: { ...bannerData, createTime: now } });
+      }
+    }
     return { success: true, data };
+  } catch (e) {
+    return { success: false, errMsg: "DB_ERROR" };
+  }
+};
+
+const SETTING_TYPES = ["text", "number", "boolean", "image"];
+
+const adminListSystemSettings = async (event) => {
+  const auth = await assertAdminSession(event.sessionToken);
+  if (!auth.ok) return { success: false, errMsg: auth.errMsg };
+  try {
+    const res = await db.collection("settings").orderBy("key", "asc").get();
+    const legacyRules = res.data.find((item) => item.key === "recycle_rules") || {};
+    const rows = res.data.filter((item) => item.key !== "recycle_rules").map((item) => ({
+      ...item,
+      value: String(item.value !== undefined ? item.value : item.imageFileId || ""),
+      type: item.type || (item.key === "home_banner" ? "image" : "text"),
+      label: item.label || (item.key === "home_banner" ? "首页 Banner" : item.key),
+      description: item.description || "",
+    }));
+    const defaults = [
+      { key: "home_banner", label: "首页 Banner", type: "image", value: "", description: "小程序首页顶部背景图" },
+      { key: "service_phone", label: "客服电话", type: "text", value: "400-800-1234", description: "首页展示及拨打的客服电话" },
+      { key: "map_key", label: "腾讯地图 Key", type: "text", value: "", description: "腾讯位置服务 WebService Key" },
+      { key: "recycle_min_weight_kg", label: "最低起收重量", type: "number", value: String(legacyRules.minWeightKg || 5), description: "单位：kg" },
+      { key: "recycle_min_count", label: "最低起收件数", type: "number", value: String(legacyRules.minCount || 0), description: "设置为 0 表示不限制件数" },
+      { key: "photo_order_check_min_quantity", label: "拍照订单校验起收量", type: "boolean", value: String(legacyRules.photoOrderCheckMinQuantity === true), description: "true 开启，false 关闭" },
+    ];
+    defaults.forEach((item) => {
+      if (!rows.some((row) => row.key === item.key)) rows.push({ ...item, _id: `virtual:${item.key}` });
+    });
+    rows.sort((a, b) => a.key.localeCompare(b.key));
+    const imageIds = rows.filter((item) => item.type === "image" && item.value).map((item) => item.value);
+    const urlMap = {};
+    if (imageIds.length) {
+      try {
+        const tempRes = await cloud.getTempFileURL({ fileList: imageIds });
+        (tempRes.fileList || []).forEach((item) => {
+          urlMap[item.fileID] = item.tempFileURL || "";
+        });
+      } catch (e) {}
+    }
+    return {
+      success: true,
+      data: rows.map((item) => ({ ...item, imageUrl: item.type === "image" ? urlMap[item.value] || "" : "" })),
+    };
+  } catch (e) {
+    return { success: false, errMsg: "DB_ERROR" };
+  }
+};
+
+const adminSaveSystemSetting = async (event) => {
+  const auth = await assertAdminSession(event.sessionToken);
+  if (!auth.ok) return { success: false, errMsg: auth.errMsg };
+  const setting = event.setting || {};
+  const key = String(setting.key || "").trim();
+  const type = SETTING_TYPES.includes(setting.type) ? setting.type : "text";
+  if (!/^[a-z][a-z0-9_]{1,63}$/.test(key)) {
+    return { success: false, errMsg: "SETTING_KEY_INVALID" };
+  }
+  const now = Date.now();
+  const value = String(setting.value === undefined ? "" : setting.value);
+  const data = {
+    key,
+    value,
+    type,
+    label: String(setting.label || key).trim(),
+    description: String(setting.description || "").trim(),
+    updateTime: now,
+  };
+  if (key === "home_banner") data.imageFileId = data.value;
+  try {
+    const res = await db.collection("settings").where({ key }).limit(1).get();
+    if (res.data[0]) {
+      await db.collection("settings").doc(res.data[0]._id).update({ data });
+    } else {
+      await db.collection("settings").add({ data: { ...data, createTime: now } });
+    }
+    return { success: true, data };
+  } catch (e) {
+    console.error("adminSaveSystemSetting failed:", { key, type, error: e });
+    return {
+      success: false,
+      errMsg: "SETTING_SAVE_FAILED",
+      data: {
+        message: e && (e.errMsg || e.message) ? e.errMsg || e.message : "数据库写入失败",
+      },
+    };
+  }
+};
+
+const adminDeleteSystemSetting = async (event) => {
+  const auth = await assertAdminSession(event.sessionToken);
+  if (!auth.ok) return { success: false, errMsg: auth.errMsg };
+  if (!event.id) return { success: false, errMsg: "PARAM_INVALID" };
+  try {
+    await db.collection("settings").doc(event.id).remove();
+    return { success: true };
   } catch (e) {
     return { success: false, errMsg: "DB_ERROR" };
   }
@@ -487,4 +681,7 @@ module.exports = {
   adminSaveCategory,
   adminGetSettings,
   adminSaveSettings,
+  adminListSystemSettings,
+  adminSaveSystemSetting,
+  adminDeleteSystemSetting,
 };

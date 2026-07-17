@@ -34,15 +34,25 @@ const getRecycleSettingsData = async () => {
   try {
     const res = await db
       .collection("settings")
-      .where({ key: "recycle_rules" })
-      .limit(1)
+      .where({
+        key: db.command.in([
+          "recycle_rules",
+          "recycle_min_weight_kg",
+          "recycle_min_count",
+          "photo_order_check_min_quantity",
+        ]),
+      })
       .get();
-    const data = res.data[0] || {};
+    const byKey = {};
+    res.data.forEach((item) => { byKey[item.key] = item; });
+    const data = byKey.recycle_rules || {};
     return {
       ...DEFAULT_RECYCLE_SETTINGS,
-      minWeightKg: Number(data.minWeightKg) || DEFAULT_RECYCLE_SETTINGS.minWeightKg,
-      minCount: Number(data.minCount) || DEFAULT_RECYCLE_SETTINGS.minCount,
-      photoOrderCheckMinQuantity: data.photoOrderCheckMinQuantity === true,
+      minWeightKg: Number(byKey.recycle_min_weight_kg && byKey.recycle_min_weight_kg.value) || Number(data.minWeightKg) || DEFAULT_RECYCLE_SETTINGS.minWeightKg,
+      minCount: Number(byKey.recycle_min_count && byKey.recycle_min_count.value) || Number(data.minCount) || DEFAULT_RECYCLE_SETTINGS.minCount,
+      photoOrderCheckMinQuantity: byKey.photo_order_check_min_quantity
+        ? String(byKey.photo_order_check_min_quantity.value) === "true" || byKey.photo_order_check_min_quantity.value === true
+        : data.photoOrderCheckMinQuantity === true,
     };
   } catch (e) {
     return { ...DEFAULT_RECYCLE_SETTINGS };
@@ -52,6 +62,29 @@ const getRecycleSettingsData = async () => {
 const getRecycleSettings = async () => {
   const settings = await getRecycleSettingsData();
   return { success: true, data: settings };
+};
+
+const getPublicSettings = async () => {
+  const defaults = {
+    servicePhone: "400-800-1234",
+    mapKey: "",
+  };
+  try {
+    const res = await db.collection("settings").where({
+      key: db.command.in(["service_phone", "map_key"]),
+    }).get();
+    const map = {};
+    res.data.forEach((item) => { map[item.key] = item.value; });
+    return {
+      success: true,
+      data: {
+        servicePhone: map.service_phone || defaults.servicePhone,
+        mapKey: map.map_key || defaults.mapKey,
+      },
+    };
+  } catch (e) {
+    return { success: true, data: defaults };
+  }
 };
 
 // 生成订单号：yyyyMMdd + 6位随机。日期部分按北京时间(UTC+8)计算，避免云函数 UTC 时区跨零点出错（R13）
@@ -460,7 +493,7 @@ const getHomeBanner = async () => {
       .limit(1)
       .get();
     const doc = res.data[0];
-    const imageFileId = doc && doc.imageFileId ? doc.imageFileId : null;
+    const imageFileId = doc && (doc.value || doc.imageFileId) ? doc.value || doc.imageFileId : null;
     let imageUrl = null;
     if (imageFileId) {
       try {
@@ -538,4 +571,5 @@ module.exports = {
   getTempFileURL,
   getRecycleSettings,
   getHomeBanner,
+  getPublicSettings,
 };

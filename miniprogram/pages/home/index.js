@@ -1,6 +1,6 @@
 // 首页
 const { callCloud, getEnvTip, clearEnvTip } = require("../../utils/cloud");
-const { getCurrentAddress } = require("../../utils/map");
+const { getCurrentAddress, setMapKey } = require("../../utils/map");
 
 // 品类 icon 字段 → Vant 图标 name（Vant 图标见 https://vant-ui.github.io/vant-weapp/#/icon）
 // 数据库中的 icon 字段：clothes / paper / appliance / metal / plastic ...
@@ -166,12 +166,15 @@ Page({
         };
       });
       const bannerImageUrl = (res.data.banner && res.data.banner.imageUrl) || "";
+      const publicSettings = res.data.settings || {};
+      const servicePhone = publicSettings.servicePhone || SERVICE_PHONE;
+      if (publicSettings.mapKey) setMapKey(publicSettings.mapKey);
       const now = Date.now();
       homeCache.categories = categories.map((item) => ({ ...item, selected: false }));
       homeCache.categoriesAt = now;
       homeCache.bannerImageUrl = bannerImageUrl;
       homeCache.bannerAt = now;
-      this.setData({ categories, hasSelection: false, bannerImageUrl });
+      this.setData({ categories, hasSelection: false, bannerImageUrl, servicePhone });
       return;
     }
 
@@ -210,7 +213,7 @@ Page({
   // ---------- 客服 ----------
   onCallService() {
     wx.makePhoneCall({
-      phoneNumber: SERVICE_PHONE,
+      phoneNumber: this.data.servicePhone || SERVICE_PHONE,
       fail: () => {},
     });
   },

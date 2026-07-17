@@ -12,7 +12,11 @@
     ordersPageSize: 20,
     ordersTotal: 0,
     ordersHasMore: false,
+    ordersSortField: "createTime",
+    ordersSortOrder: "desc",
     categories: [],
+    settings: [],
+    modalSelects: [],
     currentView: "orders",
   };
 
@@ -24,16 +28,34 @@
   };
 
   const ERROR_TEXT = {
-    FINAL_PRICE_REQUIRED: "请填写最终金额",
-    FINAL_QUANTITY_REQUIRED: "请填写实际重量或数量",
-    TRANSFER_PROOF_REQUIRED: "请上传打款截图",
     CANCEL_REASON_REQUIRED: "请选择取消原因",
     ORDER_STATUS_INVALID: "当前状态不可操作",
     PARAM_INVALID: "参数有误",
     DB_ERROR: "服务繁忙，请稍后再试",
+    SETTING_KEY_INVALID: "Key 必须以小写字母开头，只能包含小写字母、数字和下划线",
+    SETTING_SAVE_FAILED: "配置写入数据库失败",
   };
 
   const $ = (id) => document.getElementById(id);
+
+  const enhanceSelect = (element, placeholder = "请选择") => {
+    if (!element || !window.Choices || element.dataset.enhanced === "true") return null;
+    element.dataset.enhanced = "true";
+    return new window.Choices(element, {
+      searchEnabled: false,
+      shouldSort: false,
+      itemSelectText: "",
+      allowHTML: false,
+      placeholder: true,
+      placeholderValue: placeholder,
+    });
+  };
+
+  const enhanceModalSelects = () => {
+    state.modalSelects = Array.from($("modalBody").querySelectorAll("select"))
+      .map((element) => enhanceSelect(element))
+      .filter(Boolean);
+  };
 
   const escapeHtml = (value) =>
     String(value == null ? "" : value)
@@ -52,7 +74,11 @@
     )}:${pad(d.getMinutes())}`;
   };
 
-  const errorText = (e) => ERROR_TEXT[e.code] || e.code || e.message;
+  const errorText = (e) => {
+    const base = ERROR_TEXT[e.code] || e.code || e.message;
+    const detail = e.data && e.data.message;
+    return detail ? `${base}：${detail}` : base;
+  };
 
   const callCloud = async (type, data = {}) => {
     if (!state.app) throw new Error("CloudBase SDK 未初始化");
@@ -179,29 +205,41 @@
     if (resetPage) state.ordersPage = 1;
     const status = $("statusFilter").value;
     const keyword = $("keywordInput").value.trim();
-    $("ordersBody").innerHTML = `<tr><td colspan="7">加载中...</td></tr>`;
+    const sortField = state.ordersSortField;
+    const sortOrder = state.ordersSortOrder;
+    $("ordersBody").innerHTML = `<tr><td colspan="9">加载中...</td></tr>`;
     try {
       const data = await callCloud("adminListOrders", {
         ...authPayload(),
         status,
         keyword,
+        sortField,
+        sortOrder,
         page: state.ordersPage,
         pageSize: state.ordersPageSize,
       });
       state.ordersTotal = data.total || 0;
       state.ordersHasMore = !!data.hasMore;
-      renderOrders(data.list || []);
+      if (keyword) {
+        console.info("订单搜索诊断", data.searchMeta || { version: "旧版云函数", keyword });
+      }
+      renderOrders(data.list || [], data.searchMeta, !!keyword);
     } catch (e) {
       handleAdminError(e);
-      $("ordersBody").innerHTML = `<tr><td colspan="7">加载失败：${escapeHtml(
+      $("ordersBody").innerHTML = `<tr><td colspan="9">加载失败：${escapeHtml(
         e.code || e.message
       )}</td></tr>`;
     }
   };
 
-  const renderOrders = (list) => {
+  const renderOrders = (list, searchMeta, searching = false) => {
     if (!list.length) {
-      $("ordersBody").innerHTML = `<tr><td colspan="7">暂无订单</td></tr>`;
+      const emptyText = searching
+        ? searchMeta && searchMeta.version === "contact-search-v3"
+          ? `暂无匹配订单（已检索 ${searchMeta.scanned} 条）`
+          : "搜索接口仍是旧版本，请重新部署云函数并确认环境"
+        : "暂无订单";
+      $("ordersBody").innerHTML = `<tr><td colspan="9">${escapeHtml(emptyText)}</td></tr>`;
     } else {
       $("ordersBody").innerHTML = list
         .map((item) => {
@@ -222,6 +260,8 @@
             <td>${escapeHtml(item.appointDate || "")}<br />${escapeHtml(
               item.appointSlot || ""
             )}</td>
+            <td class="nowrap">${escapeHtml(formatTime(item.createTime) || "-")}</td>
+            <td class="nowrap">${escapeHtml(formatTime(item.updateTime) || "-")}</td>
             <td>${escapeHtml(price)}</td>
             <td><div class="row-actions">
               <button class="link-btn" data-action="detail" data-id="${escapeHtml(item._id)}">详情</button>
@@ -234,6 +274,21 @@
     $("pageInfo").textContent = `第 ${state.ordersPage} 页，共 ${state.ordersTotal} 条`;
     $("prevPageBtn").disabled = state.ordersPage <= 1;
     $("nextPageBtn").disabled = !state.ordersHasMore;
+  };
+
+  const renderOrderSort = () => {
+    document.querySelectorAll(".sort-header").forEach((button) => {
+      const active = button.dataset.sortField === state.ordersSortField;
+      button.classList.toggle("active", active);
+      button.querySelector(".up").classList.toggle(
+        "active",
+        active && state.ordersSortOrder === "asc"
+      );
+      button.querySelector(".down").classList.toggle(
+        "active",
+        active && state.ordersSortOrder === "desc"
+      );
+    });
   };
 
   const loadOrderDetail = async (id, mode = "detail") => {
@@ -317,12 +372,25 @@
     const list = Array.from(files || []);
     const uploaded = [];
     for (const file of list) {
+      if (file.size > 5 * 1024 * 1024) {
+        const err = new Error(`图片 ${file.name} 超过 5MB`);
+        err.code = "FILE_TOO_LARGE";
+        throw err;
+      }
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const cloudPath = `transfer-proofs/${orderNo}/${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}.${ext}`;
-      const res = await state.app.uploadFile({ cloudPath, filePath: file });
-      uploaded.push(res.fileID);
+      const { data, error } = await state.app.storage.from().upload(cloudPath, file, {
+        contentType: file.type || "image/jpeg",
+        upsert: false,
+      });
+      if (error || !data || !data.id) {
+        const err = new Error((error && error.message) || "打款截图上传失败");
+        err.code = (error && error.code) || "STORAGE_UPLOAD_FAILED";
+        throw err;
+      }
+      uploaded.push(data.id);
     }
     return uploaded;
   };
@@ -344,7 +412,7 @@
               .join("")}
           </select>
         </label>
-        <label>平台估价
+        <label>平台估价（选填）
           <input name="estimatePrice" type="number" step="0.01" value="${escapeHtml(
             order.estimatePrice == null ? "" : order.estimatePrice
           )}" />
@@ -358,17 +426,17 @@
         <label>回收人员电话
           <input name="recyclerPhone" value="${escapeHtml(order.recyclerPhone || "")}" />
         </label>
-        <label>实际重量
+        <label>实际重量（选填）
           <input name="finalWeight" type="number" step="0.01" value="${escapeHtml(
             order.finalWeight == null ? "" : order.finalWeight
           )}" />
         </label>
-        <label>实际件数
+        <label>实际件数（选填）
           <input name="finalCount" type="number" step="1" value="${escapeHtml(
             order.finalCount == null ? "" : order.finalCount
           )}" />
         </label>
-        <label>最终金额
+        <label>最终金额（选填）
           <input name="finalPrice" type="number" step="0.01" value="${escapeHtml(
             order.finalPrice == null ? "" : order.finalPrice
           )}" />
@@ -376,9 +444,9 @@
         <label class="full">取消原因
           <input name="cancelReason" value="${escapeHtml(order.cancelReason || order.rejectReason || "")}" />
         </label>
-        <label class="full">打款截图
+        <label class="full">打款截图（选填）
           <input name="transferProofFiles" type="file" accept="image/*" multiple />
-          <span class="help-text">订单改为已完成时必须至少上传一张打款截图。</span>
+          <span class="help-text">可按需上传，未上传也可以保存或完成订单。</span>
         </label>
         ${
           proofImages
@@ -394,6 +462,7 @@
         </div>
       </form>
     `;
+    enhanceModalSelects();
     $("cancelUpdateBtn").addEventListener("click", closeModal);
     $("orderUpdateForm").addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -419,14 +488,14 @@
   };
 
   const loadCategories = async () => {
-    $("categoriesBody").innerHTML = `<tr><td colspan="6">加载中...</td></tr>`;
+    $("categoriesBody").innerHTML = `<tr><td colspan="7">加载中...</td></tr>`;
     try {
       const list = await callCloud("adminListCategories", authPayload());
       state.categories = list || [];
       renderCategories();
     } catch (e) {
       handleAdminError(e);
-      $("categoriesBody").innerHTML = `<tr><td colspan="6">加载失败：${escapeHtml(
+      $("categoriesBody").innerHTML = `<tr><td colspan="7">加载失败：${escapeHtml(
         e.code || e.message
       )}</td></tr>`;
     }
@@ -434,12 +503,17 @@
 
   const renderCategories = () => {
     if (!state.categories.length) {
-      $("categoriesBody").innerHTML = `<tr><td colspan="6">暂无品类</td></tr>`;
+      $("categoriesBody").innerHTML = `<tr><td colspan="7">暂无品类</td></tr>`;
       return;
     }
     $("categoriesBody").innerHTML = state.categories
       .map(
         (item) => `<tr>
+          <td>${
+            item.iconImageUrl
+              ? `<img class="category-icon-thumb" src="${escapeHtml(item.iconImageUrl)}" alt="" />`
+              : `<span class="category-icon-empty">未配置</span>`
+          }</td>
           <td>${escapeHtml(item.name)}</td>
           <td>${escapeHtml(item.unit)}</td>
           <td>${escapeHtml(item.priceRef || "")}</td>
@@ -453,7 +527,32 @@
       .join("");
   };
 
+  const uploadCategoryIcon = async (file, categoryId) => {
+    if (!file) return "";
+    if (file.size > 5 * 1024 * 1024) {
+      const err = new Error(`图片 ${file.name} 超过 5MB`);
+      err.code = "FILE_TOO_LARGE";
+      throw err;
+    }
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const folder = categoryId || "new";
+    const cloudPath = `category-icons/${folder}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${ext}`;
+    const { data, error } = await state.app.storage.from().upload(cloudPath, file, {
+      contentType: file.type || "image/png",
+      upsert: false,
+    });
+    if (error || !data || !data.id) {
+      const err = new Error((error && error.message) || "品类图标上传失败");
+      err.code = (error && error.code) || "STORAGE_UPLOAD_FAILED";
+      throw err;
+    }
+    return data.id;
+  };
+
   const editCategory = (category = {}) => {
+    let removeIcon = false;
     openModal(category._id ? "编辑品类" : "新增品类", `
       <form id="categoryForm" class="form-grid">
         <label>名称
@@ -477,21 +576,53 @@
             <option value="false" ${category.enabled === false ? "selected" : ""}>下架</option>
           </select>
         </label>
+        <label class="full">品类图标（选填）
+          <input id="categoryIconInput" name="categoryIcon" type="file" accept="image/*" />
+          <span class="help-text">建议使用正方形 PNG/WebP 图片，单张不超过 5MB。</span>
+        </label>
+        <div id="categoryIconPreviewWrap" class="full ${category.iconImageUrl ? "" : "hidden"}">
+          <div class="asset-title">当前图标</div>
+          <div class="category-icon-preview">
+            <img id="categoryIconPreview" src="${escapeHtml(category.iconImageUrl || "")}" alt="品类图标预览" />
+          </div>
+          <button id="removeCategoryIconBtn" type="button" class="secondary-btn">移除图标</button>
+        </div>
         <div class="modal-actions full">
           <button type="button" class="secondary-btn" id="cancelCategoryBtn">取消</button>
           <button type="submit" class="primary-btn">保存</button>
         </div>
       </form>
     `);
+    enhanceModalSelects();
+    $("categoryIconInput").addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      removeIcon = false;
+      $("categoryIconPreview").src = URL.createObjectURL(file);
+      $("categoryIconPreviewWrap").classList.remove("hidden");
+    });
+    $("removeCategoryIconBtn").addEventListener("click", () => {
+      removeIcon = true;
+      $("categoryIconInput").value = "";
+      $("categoryIconPreview").src = "";
+      $("categoryIconPreviewWrap").classList.add("hidden");
+    });
     $("cancelCategoryBtn").addEventListener("click", closeModal);
     $("categoryForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       const payload = Object.fromEntries(form.entries());
+      delete payload.categoryIcon;
       payload.enabled = payload.enabled === "true";
       payload.sortOrder = Number(payload.sortOrder) || 0;
       if (category._id) payload._id = category._id;
       try {
+        const iconFile = event.currentTarget.elements.categoryIcon.files[0];
+        payload.iconFileId = removeIcon
+          ? ""
+          : iconFile
+            ? await uploadCategoryIcon(iconFile, category._id)
+            : category.iconFileId || "";
         await callCloud("adminSaveCategory", {
           ...authPayload(),
           category: payload,
@@ -505,34 +636,89 @@
     });
   };
 
+  const uploadSettingImage = async (file, key) => {
+    if (!file) return "";
+    if (file.size > 5 * 1024 * 1024) {
+      const err = new Error(`图片 ${file.name} 超过 5MB`);
+      err.code = "FILE_TOO_LARGE";
+      throw err;
+    }
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const cloudPath = `system-settings/${key}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data, error } = await state.app.storage.from().upload(cloudPath, file, {
+      contentType: file.type || "image/jpeg",
+      upsert: false,
+    });
+    if (error || !data || !data.id) {
+      const err = new Error((error && error.message) || "配置图片上传失败");
+      err.code = (error && error.code) || "STORAGE_UPLOAD_FAILED";
+      throw err;
+    }
+    return data.id;
+  };
+
   const loadSettings = async () => {
     try {
-      const data = await callCloud("adminGetSettings", authPayload());
-      $("minWeightInput").value = data.minWeightKg || 5;
-      $("minCountInput").value = data.minCount || 0;
-      $("photoCheckInput").checked = data.photoOrderCheckMinQuantity === true;
+      state.settings = (await callCloud("adminListSystemSettings", authPayload())) || [];
+      if (!state.settings.length) {
+        $("settingsBody").innerHTML = `<tr><td colspan="6">暂无配置，请点击“新增配置”</td></tr>`;
+        return;
+      }
+      $("settingsBody").innerHTML = state.settings.map((item) => `<tr>
+        <td>${escapeHtml(item.label || item.key)}</td>
+        <td><code>${escapeHtml(item.key)}</code></td>
+        <td>${escapeHtml(item.type)}</td>
+        <td>${item.type === "image" && item.imageUrl
+          ? `<img class="setting-image-thumb" src="${escapeHtml(item.imageUrl)}" alt="" />`
+          : `<span class="setting-value">${escapeHtml(String(item.value == null ? "" : item.value))}</span>`}</td>
+        <td>${escapeHtml(item.description || "-")}</td>
+        <td><div class="row-actions">
+          <button class="link-btn" data-action="edit-setting" data-id="${escapeHtml(item._id)}">编辑</button>
+          ${String(item._id).startsWith("virtual:") ? "" : `<button class="link-btn danger" data-action="delete-setting" data-id="${escapeHtml(item._id)}">删除</button>`}
+        </div></td>
+      </tr>`).join("");
     } catch (e) {
       handleAdminError(e);
-      alert(`加载配置失败：${errorText(e)}`);
+      $("settingsBody").innerHTML = `<tr><td colspan="6">加载失败：${escapeHtml(errorText(e))}</td></tr>`;
     }
   };
 
-  const saveSettings = async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const settings = {
-      minWeightKg: Number(form.get("minWeightKg")) || 5,
-      minCount: Number(form.get("minCount")) || 0,
-      photoOrderCheckMinQuantity: $("photoCheckInput").checked,
-    };
-    try {
-      await callCloud("adminSaveSettings", { ...authPayload(), settings });
-      alert("配置已保存");
-      loadSettings();
-    } catch (e) {
-      handleAdminError(e);
-      alert(`保存配置失败：${errorText(e)}`);
-    }
+  const editSetting = (setting = {}) => {
+    openModal(setting._id ? "编辑系统配置" : "新增系统配置", `
+      <form id="settingForm" class="form-grid">
+        <label>名称<input name="label" required value="${escapeHtml(setting.label || "")}" placeholder="例如：首页 Banner" /></label>
+        <label>Key<input name="key" required ${setting._id ? "readonly" : ""} value="${escapeHtml(setting.key || "")}" placeholder="例如：service_phone" /></label>
+        <label>类型（仅用于标识）<select name="type">
+          ${[["text", "文本"], ["number", "数字"], ["boolean", "布尔"], ["image", "图片"]].map(([value, text]) =>
+            `<option value="${value}" ${setting.type === value ? "selected" : ""}>${text}</option>`).join("")}
+        </select></label>
+        <label>Value（字符串）<input name="value" value="${escapeHtml(setting.value == null ? "" : setting.value)}" placeholder="所有配置值统一按字符串保存" /></label>
+        <label class="full">图片文件（仅图片类型）
+          <input name="settingImage" type="file" accept="image/*" />
+          <span class="help-text">上传后 Value 会自动保存为云存储 fileID，单张不超过 5MB。</span>
+        </label>
+        ${setting.imageUrl ? `<div class="full"><div class="asset-title">当前图片</div><img class="setting-image-preview" src="${escapeHtml(setting.imageUrl)}" alt="" /></div>` : ""}
+        <label class="full">说明<textarea name="description" placeholder="说明该配置在哪里使用">${escapeHtml(setting.description || "")}</textarea></label>
+        <div class="modal-actions full"><button type="button" id="cancelSettingBtn" class="secondary-btn">取消</button><button type="submit" class="primary-btn">保存</button></div>
+      </form>`);
+    enhanceModalSelects();
+    $("cancelSettingBtn").addEventListener("click", closeModal);
+    $("settingForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const payload = Object.fromEntries(form.entries());
+      delete payload.settingImage;
+      try {
+        const file = event.currentTarget.elements.settingImage.files[0];
+        if (payload.type === "image" && file) payload.value = await uploadSettingImage(file, payload.key);
+        await callCloud("adminSaveSystemSetting", { ...authPayload(), setting: payload });
+        closeModal();
+        loadSettings();
+      } catch (e) {
+        handleAdminError(e);
+        alert(`保存配置失败：${errorText(e)}`);
+      }
+    });
   };
 
   const switchView = (view) => {
@@ -546,7 +732,7 @@
     const titles = {
       orders: ["订单管理", "查看真实订单数据并推进订单状态"],
       categories: ["品类管理", "维护小程序展示的回收品类"],
-      settings: ["系统配置", "配置小程序下单规则"],
+      settings: ["系统配置", "使用 Key / Value 统一维护小程序运行参数"],
     };
     $("pageTitle").textContent = titles[view][0];
     $("pageDesc").textContent = titles[view][1];
@@ -561,6 +747,8 @@
   };
 
   const closeModal = () => {
+    state.modalSelects.forEach((instance) => instance.destroy());
+    state.modalSelects = [];
     $("modal").classList.add("hidden");
     $("modalBody").innerHTML = "";
   };
@@ -576,7 +764,23 @@
     $("refreshTicketBtn").addEventListener("click", createLoginTicket);
     $("logoutBtn").addEventListener("click", logout);
     $("searchOrdersBtn").addEventListener("click", () => loadOrders(true));
+    $("keywordInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") loadOrders(true);
+    });
     $("reloadOrdersBtn").addEventListener("click", () => loadOrders());
+    document.querySelectorAll(".sort-header").forEach((button) => {
+      button.addEventListener("click", () => {
+        const field = button.dataset.sortField;
+        if (state.ordersSortField === field) {
+          state.ordersSortOrder = state.ordersSortOrder === "desc" ? "asc" : "desc";
+        } else {
+          state.ordersSortField = field;
+          state.ordersSortOrder = "desc";
+        }
+        renderOrderSort();
+        loadOrders(true);
+      });
+    });
     $("prevPageBtn").addEventListener("click", () => {
       if (state.ordersPage > 1) {
         state.ordersPage -= 1;
@@ -592,7 +796,7 @@
     $("reloadCategoriesBtn").addEventListener("click", loadCategories);
     $("newCategoryBtn").addEventListener("click", () => editCategory());
     $("reloadSettingsBtn").addEventListener("click", loadSettings);
-    $("settingsForm").addEventListener("submit", saveSettings);
+    $("newSettingBtn").addEventListener("click", () => editSetting());
     $("modalCloseBtn").addEventListener("click", closeModal);
     document.querySelector(".modal-mask").addEventListener("click", closeModal);
 
@@ -613,10 +817,27 @@
       const category = state.categories.find((item) => item._id === btn.dataset.id);
       editCategory(category);
     });
+    $("settingsBody").addEventListener("click", async (event) => {
+      const btn = event.target.closest("button[data-action]");
+      if (!btn) return;
+      const setting = state.settings.find((item) => item._id === btn.dataset.id);
+      if (btn.dataset.action === "edit-setting" && setting) editSetting(setting);
+      if (btn.dataset.action === "delete-setting" && setting) {
+        if (!window.confirm(`确定删除配置 ${setting.key} 吗？`)) return;
+        try {
+          await callCloud("adminDeleteSystemSetting", { ...authPayload(), id: setting._id });
+          loadSettings();
+        } catch (e) {
+          handleAdminError(e);
+          alert(`删除失败：${errorText(e)}`);
+        }
+      }
+    });
   };
 
   const bootstrap = async () => {
     bindEvents();
+    enhanceSelect($("statusFilter"), "全部状态");
     try {
       await initCloud();
       if (bypassAdminAuth) {

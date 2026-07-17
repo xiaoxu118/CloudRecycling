@@ -1,5 +1,6 @@
 // 地址编辑（新增/修改）
 const { callCloud } = require("../../utils/cloud");
+const { backOrSwitchTab } = require("../../utils/navigation");
 const { checkLogin } = require("../../utils/auth");
 const { reverseGeocode } = require("../../utils/map");
 
@@ -112,7 +113,11 @@ Page({
     if (res.ok) {
       if (getApp().globalData) getApp().globalData.editingAddress = null;
       wx.showToast({ title: "保存成功", icon: "success" });
-      setTimeout(() => wx.navigateBack(), 600);
+      this.backTimer = setTimeout(() => backOrSwitchTab("/pages/user/index"), 600);
     }
+  },
+
+  onUnload() {
+    if (this.backTimer) clearTimeout(this.backTimer);
   },
 });

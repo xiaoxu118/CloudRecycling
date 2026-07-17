@@ -42,7 +42,18 @@
         bind:tap="onToggleCategory"
       >
         <view class="cat-icon-wrap">
-          <van-icon name="{{item.vanIcon}}" size="44rpx" color="{{item.selected ? '#0f9f6e' : '#1f1f23'}}" />
+          <image
+            wx:if="{{item.iconImageUrl}}"
+            class="cat-custom-icon"
+            src="{{item.iconImageUrl}}"
+            mode="aspectFit"
+          />
+          <van-icon
+            wx:else
+            name="{{item.vanIcon}}"
+            size="44rpx"
+            color="{{item.selected ? '#0f9f6e' : '#1f1f23'}}"
+          />
         </view>
         <text class="cat-name">{{item.name}}</text>
         <text wx:if="{{item.priceRef}}" class="cat-price">{{item.priceRef}}</text>

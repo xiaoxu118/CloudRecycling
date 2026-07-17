@@ -1,6 +1,7 @@
 // 我的地址（双模式：管理 / 选择）
 const { callCloud } = require("../../utils/cloud");
 const { checkLogin } = require("../../utils/auth");
+const { backOrSwitchTab } = require("../../utils/navigation");
 
 Page({
   data: {
@@ -42,7 +43,7 @@ Page({
     if (eventChannel && eventChannel.emit) {
       eventChannel.emit("selectAddress", addr);
     }
-    wx.navigateBack();
+    backOrSwitchTab("/pages/user/index");
   },
 
   onEdit(e) {

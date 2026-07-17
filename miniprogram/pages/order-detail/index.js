@@ -1,6 +1,7 @@
 // 订单详情
 const { callCloud } = require("../../utils/cloud");
 const { checkLogin } = require("../../utils/auth");
+const { backOrSwitchTab } = require("../../utils/navigation");
 
 const STATUS_MAP = {
   submitted: { text: "已提交", step: 1 },
@@ -31,7 +32,7 @@ Page({
     
     if (!query.id) {
       wx.showToast({ title: "缺少订单号", icon: "none" });
-      setTimeout(() => wx.navigateBack(), 600);
+      this.backTimer = setTimeout(() => backOrSwitchTab("/pages/order-list/index"), 600);
       return;
     }
     this.setData({ id: query.id });
@@ -67,9 +68,13 @@ Page({
     } else {
       this.setData({ loading: false });
       if (res.errMsg === "ORDER_NOT_FOUND") {
-        setTimeout(() => wx.navigateBack(), 800);
+        this.backTimer = setTimeout(() => backOrSwitchTab("/pages/order-list/index"), 800);
       }
     }
+  },
+
+  onUnload() {
+    if (this.backTimer) clearTimeout(this.backTimer);
   },
 
   previewPhoto(e) {

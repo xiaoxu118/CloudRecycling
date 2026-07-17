@@ -177,6 +177,11 @@
   background: #ffffff;
   border: 1rpx solid #ececec;
 }
+.cat-custom-icon {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 8rpx;
+}
 .cat-name {
   margin-top: 14rpx;
   font-size: 24rpx;

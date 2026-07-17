@@ -3,7 +3,10 @@
 // 申请地址：https://lbs.qq.com/  控制台 → 应用管理 → 我的应用 → 创建 key
 // ⚠️ 还需在腾讯位置服务控制台为该 key 勾选「WebServiceAPI」并把本小程序 AppID 加入白名单。
 // 同时确保 app.json 已配置 permission.scope.userLocation 与 requiredPrivateInfos。
-const MAP_KEY = "4MRBZ-EYLYI-XRCGF-UC33Z-SNYOO-OVFEI"; // TODO: 替换为你的腾讯地图 key
+const DEFAULT_MAP_KEY = "4MRBZ-EYLYI-XRCGF-UC33Z-SNYOO-OVFEI";
+let runtimeMapKey = "";
+const getMapKey = () => runtimeMapKey || DEFAULT_MAP_KEY;
+const setMapKey = (key) => { runtimeMapKey = String(key || "").trim(); };
 
 // wx.getLocation —— 取当前经纬度（gcj02 供逆地理编码用）
 const getLocation = () =>
@@ -19,14 +22,15 @@ const getLocation = () =>
 // 返回 { address, province, city, district, latitude, longitude, ... }
 const reverseGeocode = (latitude, longitude) =>
   new Promise((resolve, reject) => {
-    if (!MAP_KEY || MAP_KEY === "YOUR_MAP_KEY") {
+    const mapKey = getMapKey();
+    if (!mapKey || mapKey === "YOUR_MAP_KEY") {
       return reject(new Error("MAP_KEY_NOT_SET"));
     }
     wx.request({
       url: "https://apis.map.qq.com/ws/geocoder/v1/",
       data: {
         location: `${latitude},${longitude}`,
-        key: MAP_KEY,
+        key: mapKey,
         get_poi: 0,
       },
       success: (res) => {
@@ -63,7 +67,8 @@ const getCurrentAddress = async () => {
 };
 
 module.exports = {
-  MAP_KEY,
+  MAP_KEY: DEFAULT_MAP_KEY,
+  setMapKey,
   getLocation,
   reverseGeocode,
   getCurrentAddress,
