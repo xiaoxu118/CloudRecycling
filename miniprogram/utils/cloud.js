@@ -12,6 +12,10 @@ const ERR_MSG_MAP = {
   ADMIN_SESSION_REQUIRED: "请先登录管理后台",
   ADMIN_SESSION_EXPIRED: "管理登录已过期",
   LOGIN_TICKET_EXPIRED: "登录二维码已过期",
+  TRANSFER_PROOF_REQUIRED: "请上传打款凭证",
+  FINAL_PRICE_REQUIRED: "请填写最终金额",
+  ACTUAL_QUANTITY_REQUIRED: "请填写实际重量或件数",
+  CANCEL_REASON_REQUIRED: "请填写取消原因",
   DB_ERROR: "服务繁忙，请稍后再试",
 };
 

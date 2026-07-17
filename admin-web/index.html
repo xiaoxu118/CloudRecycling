@@ -3,125 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f766e" />
     <title>云回收管理后台</title>
-    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div id="loginView" class="login-view">
-      <section class="login-panel">
-        <div class="brand">云回收管理后台</div>
-        <div class="login-grid">
-          <div>
-            <h1>微信扫码登录</h1>
-            <p class="muted">
-              使用已加入管理员白名单的微信扫码，在小程序内确认后进入后台。
-            </p>
-            <div class="login-actions">
-              <button id="refreshTicketBtn" class="primary-btn">刷新二维码</button>
-            </div>
-            <div id="loginMessage" class="message"></div>
-          </div>
-          <div class="qr-box">
-            <img id="qrImage" alt="管理后台登录小程序码" />
-            <div id="qrFallback" class="qr-fallback"></div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div id="appView" class="app-view hidden">
-      <aside class="sidebar">
-        <div class="logo">云回收</div>
-        <button class="nav-btn active" data-view="orders">订单管理</button>
-        <button class="nav-btn" data-view="categories">品类管理</button>
-        <button id="logoutBtn" class="logout-btn">退出登录</button>
-      </aside>
-
-      <main class="main">
-        <header class="topbar">
-          <div>
-            <h1 id="pageTitle">订单管理</h1>
-            <p id="pageDesc">查看真实订单数据并推进订单状态</p>
-          </div>
-          <div id="adminName" class="admin-name"></div>
-        </header>
-
-        <section id="ordersView" class="content-view">
-          <div class="toolbar">
-            <select id="statusFilter">
-              <option value="">全部状态</option>
-              <option value="submitted">已提交</option>
-              <option value="confirmed">已确认</option>
-              <option value="assigned">已分配</option>
-              <option value="recycling">回收中</option>
-              <option value="completed">已完成</option>
-              <option value="canceled">已取消</option>
-              <option value="rejected">暂不可回收</option>
-            </select>
-            <input id="keywordInput" placeholder="搜索订单号" />
-            <button id="searchOrdersBtn" class="secondary-btn">查询</button>
-            <button id="reloadOrdersBtn" class="secondary-btn">刷新</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>订单号</th>
-                  <th>状态</th>
-                  <th>摘要</th>
-                  <th>联系人</th>
-                  <th>预约时间</th>
-                  <th>金额</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="ordersBody"></tbody>
-            </table>
-          </div>
-          <div class="pager">
-            <button id="prevPageBtn" class="secondary-btn">上一页</button>
-            <span id="pageInfo"></span>
-            <button id="nextPageBtn" class="secondary-btn">下一页</button>
-          </div>
-        </section>
-
-        <section id="categoriesView" class="content-view hidden">
-          <div class="toolbar">
-            <button id="newCategoryBtn" class="primary-btn">新增品类</button>
-            <button id="reloadCategoriesBtn" class="secondary-btn">刷新</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>名称</th>
-                  <th>单位</th>
-                  <th>参考价</th>
-                  <th>排序</th>
-                  <th>状态</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="categoriesBody"></tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <div id="modal" class="modal hidden">
-      <div class="modal-mask"></div>
-      <section class="modal-panel">
-        <header class="modal-header">
-          <h2 id="modalTitle"></h2>
-          <button id="modalCloseBtn" class="icon-btn">×</button>
-        </header>
-        <div id="modalBody" class="modal-body"></div>
-      </section>
-    </div>
-
-    <script src="./config.js"></script>
-    <script src="https://imgcache.qq.com/qcloud/tcbjs/1.10.10/tcb.js"></script>
-    <script src="./app.js"></script>
+    <div id="root"></div>
+    <script src="/config.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

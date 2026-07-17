@@ -32,6 +32,18 @@
 
 ## 部署
 
-`admin-web/` 是纯静态文件，不需要构建。把该目录上传到 CloudBase 静态网站托管即可。若云开发环境 ID 变化，修改 `config.js`。
+`admin-web/` 使用 Vite + React + TypeScript 开发，构建结果仍是可部署到 CloudBase 静态网站托管的纯静态文件。
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+如需在不调用云环境、不扫码的情况下验证管理页面，开发服务可访问 `http://localhost:5173/?mock=1#/orders`。本地预览只在 Vite 开发模式下生效，生产构建不会启用登录绕过。
+
+开发模式的登录页也会显示“账号密码”选项，本地测试账号为 `admin`，密码为 `admin123`。该入口只会进入 Mock 预览，不读写真实 CloudBase 数据，且不会在生产模式显示。
+
+开发服务默认使用 Vite 端口，生产构建输出到 `dist/`。部署时上传 `dist/` 目录内容。若云开发环境 ID 变化，修改 `public/config.js`；该文件会在构建时复制到 `dist/config.js`。
 
 正式使用建议绑定自定义域名，并只把后台域名发给运营人员。真正的权限边界仍在云函数的管理员白名单和 session 校验。

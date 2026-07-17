@@ -1,6 +1,8 @@
 # 依赖
 node_modules/
 cloudfunctions/**/node_modules/
+admin-web/dist/
+*.tsbuildinfo
 
 # 小程序构建产物（由 npm 构建生成，无需提交）
 miniprogram/miniprogram_npm/

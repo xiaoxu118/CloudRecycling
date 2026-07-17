@@ -227,6 +227,8 @@ exports.main = async (event, context) => {
       return await recycleCategories.initRecycleDB();
     case "listCategories":
       return await recycleCategories.listCategories();
+    case "getRecycleSettings":
+      return await recycleOrders.getRecycleSettings();
     // 地址
     case "getAddressList":
       return await recycleAddress.getAddressList(event, OPENID);
@@ -264,5 +266,9 @@ exports.main = async (event, context) => {
       return await recycleAdmin.adminListCategories(event);
     case "adminSaveCategory":
       return await recycleAdmin.adminSaveCategory(event);
+    case "adminGetSettings":
+      return await recycleAdmin.adminGetSettings(event);
+    case "adminSaveSettings":
+      return await recycleAdmin.adminSaveSettings(event);
   }
 };
