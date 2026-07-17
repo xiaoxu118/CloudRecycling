@@ -8,6 +8,31 @@ const _ = db.command;
 const LOGIN_TICKET_TTL = 5 * 60 * 1000;
 const ADMIN_SESSION_TTL = 12 * 60 * 60 * 1000;
 const PAGE_SIZE_MAX = 50;
+const DEFAULT_SETTINGS = {
+  key: "recycle_rules",
+  minWeightKg: 5,
+  minCount: 0,
+  photoOrderCheckMinQuantity: false,
+  siteName: "绿源废品回收平台",
+  servicePhone: "4008889999",
+  notifyEnabled: true,
+  autoAssign: false,
+  maxDistanceKm: 10,
+};
+
+const LEGACY_STATUS_MAP = {
+  confirmed: "processing",
+  assigned: "processing",
+  recycling: "processing",
+  rejected: "canceled",
+};
+
+const normalizeStatus = (status) => LEGACY_STATUS_MAP[status] || status;
+
+const STATUS_QUERY_MAP = {
+  processing: ["processing", "confirmed", "assigned", "recycling"],
+  canceled: ["canceled", "rejected"],
+};
 
 const randomId = (prefix = "") => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
@@ -58,7 +83,7 @@ const assertAdminSession = async (sessionToken) => {
 };
 
 const initAdminCollections = async () => {
-  for (const name of ["admins", "admin_login_tickets", "admin_sessions"]) {
+  for (const name of ["admins", "admin_login_tickets", "admin_sessions", "settings"]) {
     await ensureCollection(name);
   }
   return { success: true };
@@ -223,7 +248,10 @@ const adminListOrders = async (event) => {
   if (pageSize > PAGE_SIZE_MAX) pageSize = PAGE_SIZE_MAX;
 
   const where = {};
-  if (status) where.status = status;
+  if (status) {
+    const statusValues = STATUS_QUERY_MAP[status];
+    where.status = statusValues ? _.in(statusValues) : status;
+  }
   if (keyword) {
     where.orderNo = db.RegExp({ regexp: keyword, options: "i" });
   }
@@ -254,7 +282,10 @@ const adminListOrders = async (event) => {
     return {
       success: true,
       data: {
-        list: listRes.data,
+        list: listRes.data.map((item) => ({
+          ...item,
+          status: normalizeStatus(item.status),
+        })),
         total: countRes.total,
         hasMore: page * pageSize < countRes.total,
       },
@@ -273,12 +304,24 @@ const adminGetOrderDetail = async (event) => {
   try {
     const res = await db.collection("orders").doc(event.id).get();
     const order = res.data;
-    let photoUrls = [];
-    if (Array.isArray(order.photos) && order.photos.length > 0) {
-      const tmp = await cloud.getTempFileURL({ fileList: order.photos });
-      photoUrls = tmp.fileList.map((f) => f.tempFileURL);
-    }
-    return { success: true, data: { ...order, photoUrls } };
+    const resolveUrls = async (fileList) => {
+      if (!Array.isArray(fileList) || fileList.length === 0) return [];
+      const tmp = await cloud.getTempFileURL({ fileList });
+      return tmp.fileList.map((f) => f.tempFileURL || "");
+    };
+    const [photoUrls, transferProofUrls] = await Promise.all([
+      resolveUrls(order.photos),
+      resolveUrls(order.transferProofs),
+    ]);
+    return {
+      success: true,
+      data: {
+        ...order,
+        status: normalizeStatus(order.status),
+        photoUrls,
+        transferProofUrls,
+      },
+    };
   } catch (e) {
     return { success: false, errMsg: "ORDER_NOT_FOUND" };
   }
@@ -290,31 +333,66 @@ const adminUpdateOrder = async (event) => {
   const { id, status } = event;
   if (!id || !status) return { success: false, errMsg: "PARAM_INVALID" };
 
-  const allowStatuses = [
-    "submitted",
-    "confirmed",
-    "assigned",
-    "recycling",
-    "completed",
-    "canceled",
-    "rejected",
-  ];
+  const allowStatuses = ["submitted", "processing", "completed", "canceled"];
   if (!allowStatuses.includes(status)) {
     return { success: false, errMsg: "PARAM_INVALID" };
   }
 
-  const data = {
-    status,
-    updateTime: Date.now(),
+  let currentOrder;
+  try {
+    const current = await db.collection("orders").doc(id).get();
+    currentOrder = current.data;
+  } catch (e) {
+    return { success: false, errMsg: "ORDER_NOT_FOUND" };
+  }
+
+  const currentStatus = normalizeStatus(currentOrder.status);
+  const allowedTransitions = {
+    submitted: ["submitted", "processing", "canceled"],
+    processing: ["processing", "completed", "canceled"],
+    completed: ["completed"],
+    canceled: ["canceled"],
   };
-  ["estimatePrice", "finalWeight", "finalPrice"].forEach((key) => {
+  if (!allowedTransitions[currentStatus] || !allowedTransitions[currentStatus].includes(status)) {
+    return { success: false, errMsg: "ORDER_STATUS_INVALID" };
+  }
+
+  const now = Date.now();
+  const data = { status, updateTime: now };
+  ["estimatePrice", "finalWeight", "finalCount", "finalPrice"].forEach((key) => {
     if (event[key] !== undefined && event[key] !== "") {
       data[key] = Number(event[key]);
     }
   });
-  ["recyclerId", "rejectReason", "adminRemark"].forEach((key) => {
+  ["recyclerName", "recyclerPhone", "cancelReason", "adminRemark"].forEach((key) => {
     if (event[key] !== undefined) data[key] = event[key] || "";
   });
+  if (Array.isArray(event.transferProofs)) {
+    data.transferProofs = event.transferProofs.filter((item) => typeof item === "string" && item);
+  }
+
+  const merged = { ...currentOrder, ...data };
+  if (status === "completed") {
+    if (currentStatus !== "processing") {
+      return { success: false, errMsg: "ORDER_STATUS_INVALID" };
+    }
+    if (merged.finalPrice === undefined || merged.finalPrice === null || merged.finalPrice === "") {
+      return { success: false, errMsg: "FINAL_PRICE_REQUIRED" };
+    }
+    if (!(Number(merged.finalWeight) > 0 || Number(merged.finalCount) > 0)) {
+      return { success: false, errMsg: "ACTUAL_QUANTITY_REQUIRED" };
+    }
+    if (!Array.isArray(merged.transferProofs) || merged.transferProofs.length === 0) {
+      return { success: false, errMsg: "TRANSFER_PROOF_REQUIRED" };
+    }
+    data.completedAt = currentOrder.completedAt || now;
+  }
+  if (status === "canceled") {
+    if (!String(merged.cancelReason || "").trim()) {
+      return { success: false, errMsg: "CANCEL_REASON_REQUIRED" };
+    }
+    data.canceledAt = currentOrder.canceledAt || now;
+  }
 
   try {
     await db.collection("orders").doc(id).update({ data });
@@ -362,6 +440,57 @@ const adminSaveCategory = async (event) => {
   }
 };
 
+const adminGetSettings = async (event) => {
+  const auth = await assertAdminSession(event.sessionToken);
+  if (!auth.ok) return { success: false, errMsg: auth.errMsg };
+  try {
+    await ensureCollection("settings");
+    const result = await db.collection("settings").where({ key: "recycle_rules" }).limit(1).get();
+    return {
+      success: true,
+      data: result.data[0] ? { ...DEFAULT_SETTINGS, ...result.data[0] } : { ...DEFAULT_SETTINGS },
+    };
+  } catch (e) {
+    return { success: false, errMsg: "DB_ERROR" };
+  }
+};
+
+const adminSaveSettings = async (event) => {
+  const auth = await assertAdminSession(event.sessionToken);
+  if (!auth.ok) return { success: false, errMsg: auth.errMsg };
+  const settings = event.settings || {};
+  const minWeightKg = Number(settings.minWeightKg);
+  const minCount = Number(settings.minCount);
+  const maxDistanceKm = Number(settings.maxDistanceKm ?? DEFAULT_SETTINGS.maxDistanceKm);
+  if (!Number.isFinite(minWeightKg) || minWeightKg < 0 || !Number.isInteger(minCount) || minCount < 0 || !Number.isFinite(maxDistanceKm) || maxDistanceKm < 1 || maxDistanceKm > 50) {
+    return { success: false, errMsg: "PARAM_INVALID" };
+  }
+  const data = {
+    ...DEFAULT_SETTINGS,
+    minWeightKg,
+    minCount,
+    photoOrderCheckMinQuantity: Boolean(settings.photoOrderCheckMinQuantity),
+    siteName: String(settings.siteName || DEFAULT_SETTINGS.siteName).slice(0, 60),
+    servicePhone: String(settings.servicePhone || DEFAULT_SETTINGS.servicePhone).slice(0, 30),
+    notifyEnabled: settings.notifyEnabled !== false,
+    autoAssign: Boolean(settings.autoAssign),
+    maxDistanceKm,
+    updateTime: Date.now(),
+  };
+  try {
+    await ensureCollection("settings");
+    const result = await db.collection("settings").where({ key: "recycle_rules" }).limit(1).get();
+    if (result.data[0]) {
+      await db.collection("settings").doc(result.data[0]._id).update({ data });
+      return { success: true, data: { ...data, _id: result.data[0]._id } };
+    }
+    const added = await db.collection("settings").add({ data });
+    return { success: true, data: { ...data, _id: added._id } };
+  } catch (e) {
+    return { success: false, errMsg: "DB_ERROR" };
+  }
+};
+
 module.exports = {
   initAdminCollections,
   adminCreateLoginTicket,
@@ -372,4 +501,6 @@ module.exports = {
   adminUpdateOrder,
   adminListCategories,
   adminSaveCategory,
+  adminGetSettings,
+  adminSaveSettings,
 };

@@ -31,7 +31,7 @@
         </view>
       </view>
     </view>
-    <view class="min-tip">最低起收量：{{minWeight}}kg</view>
+    <view class="min-tip" wx:if="{{minWeight > 0 || minCount > 0}}">最低起收量：{{minWeight > 0 ? minWeight + 'kg' : ''}}{{minWeight > 0 && minCount > 0 ? '或' : ''}}{{minCount > 0 ? minCount + '件' : ''}}</view>
   </view>
 
   <!-- 拍照提交 -->

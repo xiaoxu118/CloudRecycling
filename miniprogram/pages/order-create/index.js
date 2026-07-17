@@ -19,6 +19,7 @@ Page({
     remark: "",
     submitting: false,
     minWeight: 5,
+    minCount: 0,
     today: "",
   },
 
@@ -43,6 +44,15 @@ Page({
       this.setData({ pickedAddress: addr });
       getApp().globalData.pickedAddress = null;
     }
+
+    callCloud("getRecycleSettings", {}, { toast: false }).then((res) => {
+      if (res.ok && res.data) {
+        this.setData({
+          minWeight: Number(res.data.minWeightKg) || 0,
+          minCount: Number(res.data.minCount) || 0,
+        });
+      }
+    });
   },
 
   onQuantityInput(e) {
@@ -141,8 +151,19 @@ Page({
       }
 
       const totalWeight = validItems.reduce((sum, i) => sum + (i.estWeight || 0), 0);
-      if (totalWeight < this.data.minWeight) {
-        return wx.showToast({ title: `未达最低起收量(${this.data.minWeight}kg)`, icon: "none" });
+      const totalCount = validItems.reduce((sum, i) => sum + (i.estCount || 0), 0);
+      const weightEnabled = this.data.minWeight > 0;
+      const countEnabled = this.data.minCount > 0;
+      const passed =
+        (!weightEnabled && !countEnabled) ||
+        (weightEnabled && totalWeight >= this.data.minWeight) ||
+        (countEnabled && totalCount >= this.data.minCount);
+      if (!passed) {
+        const threshold = [
+          weightEnabled ? `${this.data.minWeight}kg` : "",
+          countEnabled ? `${this.data.minCount}件` : "",
+        ].filter(Boolean).join("或");
+        return wx.showToast({ title: `未达最低起收量(${threshold})`, icon: "none" });
       }
     } else {
       if (photos.length === 0) {

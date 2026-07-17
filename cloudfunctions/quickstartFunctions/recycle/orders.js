@@ -5,13 +5,35 @@ const cloud = require("wx-server-sdk");
 
 const db = cloud.database();
 
-// 最低起收量阈值（Q2 待平台确认，默认总重量 ≥ 5kg）
-const MIN_WEIGHT_KG = 5;
+const DEFAULT_SETTINGS = {
+  key: "recycle_rules",
+  minWeightKg: 5,
+  minCount: 0,
+  photoOrderCheckMinQuantity: false,
+};
 
 // 进行中 / 已结束 状态分组（对应列表 tab）
 const STATUS_GROUPS = {
-  ongoing: ["submitted", "confirmed", "assigned", "recycling"],
+  ongoing: ["submitted", "processing", "confirmed", "assigned", "recycling"],
   done: ["completed", "canceled", "rejected"],
+};
+
+const LEGACY_STATUS_MAP = {
+  confirmed: "processing",
+  assigned: "processing",
+  recycling: "processing",
+  rejected: "canceled",
+};
+
+const normalizeStatus = (status) => LEGACY_STATUS_MAP[status] || status;
+
+const getRecycleSettings = async () => {
+  try {
+    const result = await db.collection("settings").where({ key: "recycle_rules" }).limit(1).get();
+    return { success: true, data: result.data[0] ? { ...DEFAULT_SETTINGS, ...result.data[0] } : { ...DEFAULT_SETTINGS } };
+  } catch (e) {
+    return { success: true, data: { ...DEFAULT_SETTINGS } };
+  }
 };
 
 // 生成订单号：yyyyMMdd + 6位随机。日期部分按北京时间(UTC+8)计算，避免云函数 UTC 时区跨零点出错（R13）
@@ -79,13 +101,24 @@ const createOrder = async (event, OPENID) => {
       detail: addr.detail,
     };
 
-    // 3. source=category 校验最低起收量（按 kg 汇总；件数类不计入重量阈值）
+    // 3. source=category 根据管理端配置校验最低起收量。
     if (source === "category") {
+      const settingsResult = await getRecycleSettings();
+      const settings = settingsResult.data;
       const totalWeight = items.reduce(
         (sum, it) => sum + (Number(it.estWeight) || 0),
         0
       );
-      if (totalWeight < MIN_WEIGHT_KG) {
+      const totalCount = items.reduce(
+        (sum, it) => sum + (Number(it.estCount) || 0),
+        0
+      );
+      const weightEnabled = Number(settings.minWeightKg) > 0;
+      const countEnabled = Number(settings.minCount) > 0;
+      const weightPassed = weightEnabled && totalWeight >= Number(settings.minWeightKg);
+      const countPassed = countEnabled && totalCount >= Number(settings.minCount);
+      // 当两个阈值同时开启时，重量或件数任一达标即可提交。
+      if ((weightEnabled || countEnabled) && !(weightPassed || countPassed)) {
         return { success: false, errMsg: "BELOW_MIN_QUANTITY" };
       }
     }
@@ -107,8 +140,13 @@ const createOrder = async (event, OPENID) => {
       status: "submitted",
       estimatePrice: null,
       finalWeight: null,
+      finalCount: null,
       finalPrice: null,
-      recyclerId: null,
+      recyclerName: "",
+      recyclerPhone: "",
+      transferProofs: [],
+      cancelReason: "",
+      adminRemark: "",
       createTime: now,
       updateTime: now,
     };
@@ -157,7 +195,14 @@ const getOrderList = async (event, OPENID) => {
       .get();
 
     const hasMore = page * pageSize < total;
-    return { success: true, data: { list: listRes.data, total, hasMore } };
+    return {
+      success: true,
+      data: {
+        list: listRes.data.map((item) => ({ ...item, status: normalizeStatus(item.status) })),
+        total,
+        hasMore,
+      },
+    };
   } catch (e) {
     return { success: false, errMsg: "DB_ERROR" };
   }
@@ -181,19 +226,26 @@ const getOrderDetail = async (event, OPENID) => {
     const order = res.data[0];
 
     // 把 photos 的 fileID 批量换成临时 URL
-    let photoUrls = [];
-    if (Array.isArray(order.photos) && order.photos.length > 0) {
-      const tmp = await cloud.getTempFileURL({ fileList: order.photos });
-      photoUrls = tmp.fileList.map((f) => f.tempFileURL);
-    }
+    const resolveUrls = async (fileList) => {
+      if (!Array.isArray(fileList) || fileList.length === 0) return [];
+      const tmp = await cloud.getTempFileURL({ fileList });
+      return tmp.fileList.map((f) => f.tempFileURL || "");
+    };
+    const [photoUrls, transferProofUrls] = await Promise.all([
+      resolveUrls(order.photos),
+      resolveUrls(order.transferProofs),
+    ]);
 
-    return { success: true, data: { ...order, photoUrls } };
+    return {
+      success: true,
+      data: { ...order, status: normalizeStatus(order.status), photoUrls, transferProofUrls },
+    };
   } catch (e) {
     return { success: false, errMsg: "DB_ERROR" };
   }
 };
 
-// cancelOrder — 用户取消订单（仅 submitted/confirmed 可取消）
+// cancelOrder — 用户取消订单（仅 submitted 可取消）
 const cancelOrder = async (event, OPENID) => {
   const id = event.id;
   if (!id) {
@@ -209,14 +261,21 @@ const cancelOrder = async (event, OPENID) => {
       return { success: false, errMsg: "ORDER_NOT_FOUND" };
     }
     const status = res.data[0].status;
-    if (status !== "submitted" && status !== "confirmed") {
+    if (status !== "submitted") {
       return { success: false, errMsg: "ORDER_STATUS_INVALID" };
     }
 
     await db
       .collection("orders")
       .where({ _id: id, _openid: OPENID })
-      .update({ data: { status: "canceled", updateTime: Date.now() } });
+      .update({
+        data: {
+          status: "canceled",
+          cancelReason: event.cancelReason || "用户取消",
+          canceledAt: Date.now(),
+          updateTime: Date.now(),
+        },
+      });
 
     return { success: true };
   } catch (e) {
@@ -248,4 +307,5 @@ module.exports = {
   getOrderDetail,
   cancelOrder,
   getTempFileURL,
+  getRecycleSettings,
 };
